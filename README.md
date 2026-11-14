@@ -4,7 +4,7 @@ _Project description will be added once the team approves the concept._
 
 ## Status
 
-Development step 0: backend skeleton. Every API endpoint answers with an explicit state (`not_implemented`, `not_ready`, `not_found`, …). The backend never shows invented, interpolated or placeholder data values.
+Development step 1: trend analysis for a point. `POST /api/v1/analyses` returns a real NASA monthly series for one of seven variables, its rate of change (Sen's slope with a 95 % confidence interval) and three significance tests (Mann-Kendall with autocorrelation correction, OLS t-test with effective sample size, Seasonal Kendall on raw data). Areas, trend maps and change-point analysis come in later steps and answer with explicit states until then. The backend never shows invented, interpolated or placeholder data values: a missing month is `null` with a reason.
 
 ## Repository layout
 

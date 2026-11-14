@@ -1,2 +1,4 @@
 -r requirements.txt
 pytest==9.1.1
+# used only to cross-check our own statistics implementation in tests
+pymannkendall==1.4.3

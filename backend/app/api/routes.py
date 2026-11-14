@@ -1,8 +1,8 @@
-"""Contract v1.1 endpoints — step 0.
+"""Contract v1.1 endpoints — step 1 (mode 1 minimum for points).
 
-Every endpoint answers with an explicit state. Nothing here computes or invents data:
-analyses and investigations answer ``not_implemented`` until steps 1-4, maps answer
-``not_ready`` until the Europe map is precomputed from real data.
+Every endpoint answers with real data or an explicit state. Point analyses use real
+series (Europe cube or Giovanni); areas answer ``not_implemented`` until step 3,
+investigations until step 4; maps answer ``not_ready`` until precomputed.
 """
 
 from __future__ import annotations
@@ -14,11 +14,12 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from .. import catalog, sources, storage
+from ..analysis import point_analysis
 from .models import AnalysisRequest, InvestigationRequest
 
 API_VERSION = "v1"
-SERVICE_VERSION = "0.1.0"
-STEP = 0
+SERVICE_VERSION = "0.2.0"
+STEP = 1
 
 router = APIRouter(prefix="/api/v1")
 
@@ -65,17 +66,23 @@ async def variables() -> dict[str, Any]:
 
 
 @router.post("/analyses")
-async def create_analysis(body: AnalysisRequest) -> JSONResponse:
-    return JSONResponse(status_code=501, content={
-        "status": "not_implemented",
-        "reason": "analyses_available_from_step_1",
-        "request": body.model_dump(mode="json"),
-    })
+async def create_analysis(body: AnalysisRequest, request: Request) -> JSONResponse:
+    if body.location.type == "area":
+        return JSONResponse(status_code=501, content={
+            "status": "not_implemented",
+            "reason": "area_available_from_step_3",
+            "request": body.model_dump(mode="json"),
+        })
+    status_code, content = await point_analysis(request.app.state.settings, request.app.state.store, body)
+    return JSONResponse(status_code=status_code, content=content)
 
 
 @router.get("/analyses/{analysis_id}")
-async def get_analysis(analysis_id: str) -> JSONResponse:
-    return _not_found("unknown_analysis")
+async def get_analysis(analysis_id: str, request: Request) -> JSONResponse:
+    stored = request.app.state.store.get_analysis(analysis_id)
+    if stored is None:
+        return _not_found("unknown_analysis")
+    return JSONResponse(content=stored)
 
 
 @router.get("/jobs/{job_id}")

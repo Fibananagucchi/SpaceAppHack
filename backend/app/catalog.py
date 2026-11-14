@@ -15,8 +15,8 @@ from typing import Any
 
 COVERAGE_CHECKED_AT = "2026-11-14"
 
-# Capabilities in step 0: nothing is computed yet, every capability is explicit.
-STEP0_CAPABILITIES = {"point": "not_implemented", "area": "not_implemented", "map_europe": "not_implemented"}
+# Capabilities in step 1: live point analyses; areas (step 3) and maps (step 3) are explicit.
+CAPABILITIES = {"point": "live", "area": "not_implemented", "map_europe": "not_implemented"}
 
 _VARIABLES: list[dict[str, Any]] = [
     {
@@ -55,7 +55,7 @@ _VARIABLES: list[dict[str, Any]] = [
         },
         "native_resolution": {"lat_deg": 0.1, "lon_deg": 0.1, "time": "monthly"},
         "coverage": {"start": "1998-01", "end": "2025-09", "spatial": "global", "surface": "land_and_ocean"},
-        "processing": {"unit_conversion": "mm/hr x 24 x days in month", "aggregation": None},
+        "processing": {"unit_conversion": "monthly mean rate in mm/hr (file attribute) x 24 x days in month", "aggregation": None},
         "_internal": {
             "collection_concept_id": "C2723754851-GES_DISC",
             "giovanni_id": "GPM_3IMERGM_07_precipitation",
@@ -99,7 +99,7 @@ _VARIABLES: list[dict[str, Any]] = [
         },
         "native_resolution": {"lat_deg": 0.25, "lon_deg": 0.25, "time": "monthly"},
         "coverage": {"start": "2000-01", "end": "2026-07", "spatial": "global land (60S-90N)", "surface": "land"},
-        "processing": {"unit_conversion": "kg m-2 s-1 x 86400 x days in month", "aggregation": None},
+        "processing": {"unit_conversion": "monthly mean rate in kg m-2 s-1 x 86400 x days in month (GLDAS-2 README)", "aggregation": None},
         "_internal": {
             "collection_concept_id": "C1342986036-GES_DISC",
             "giovanni_id": "GLDAS_NOAH025_M_2_1_Evap_tavg",
@@ -121,9 +121,8 @@ _VARIABLES: list[dict[str, Any]] = [
         },
         "native_resolution": {"lat_deg": 0.25, "lon_deg": 0.25, "time": "monthly"},
         "coverage": {"start": "2000-01", "end": "2026-07", "spatial": "global land (60S-90N)", "surface": "land"},
-        # The monthly meaning of the "_acc" field must be confirmed in the GLDAS README
-        # before any value is shown (step 1). Until then the conversion is marked unverified.
-        "processing": {"unit_conversion": "unverified: monthly mean of 3-hourly accumulations (to confirm in README)",
+        # GLDAS-2 README: monthly "_acc" values are the average 3-hour accumulation over the month.
+        "processing": {"unit_conversion": "monthly mean 3-hour accumulation in kg m-2 x 8 x days in month (GLDAS-2 README)",
                        "aggregation": None},
         "_internal": {
             "collection_concept_id": "C1342986036-GES_DISC",
@@ -195,7 +194,7 @@ def public_variable(variable: dict[str, Any], capabilities: dict[str, str]) -> d
 
 
 def list_public_variables() -> list[dict[str, Any]]:
-    return [public_variable(v, STEP0_CAPABILITIES) for v in _VARIABLES]
+    return [public_variable(v, CAPABILITIES) for v in _VARIABLES]
 
 
 def get_variable(variable_id: str) -> dict[str, Any] | None:

@@ -2,7 +2,7 @@
 # Built by Cloud Build with `gcloud run deploy --source .` (no local Docker required).
 
 # ---- Stage 1: frontend build (skipped gracefully until frontend/package.json exists) ----
-FROM node:22.11.0-alpine AS frontend
+FROM node:24.15.0-alpine AS frontend
 WORKDIR /frontend
 COPY frontend/ ./
 RUN if [ -f package.json ]; then \

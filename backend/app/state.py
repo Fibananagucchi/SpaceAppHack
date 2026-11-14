@@ -124,6 +124,35 @@ class StateStore:
                          "WHERE status = 'running'", (utc_now(),))
         return [r["job_id"] for r in rows]
 
+    # ---- series cache (real source responses only) ------------------------------------
+    def get_cached_series(self, cache_key: str, max_age_s: float) -> tuple[dict[str, Any], str] | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT payload_json, retrieved_at FROM series_cache WHERE cache_key = ?",
+                               (cache_key,)).fetchone()
+        if not row:
+            return None
+        retrieved = datetime.strptime(row["retrieved_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - retrieved).total_seconds() > max_age_s:
+            return None
+        return json.loads(row["payload_json"]), row["retrieved_at"]
+
+    def put_cached_series(self, cache_key: str, payload: dict[str, Any], *, source: str, product: str,
+                          retrieved_at: str) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO series_cache VALUES (?,?,?,?,?)",
+                         (cache_key, json.dumps(payload), source, product, retrieved_at))
+
+    # ---- stored analyses ------------------------------------------------------------------
+    def put_analysis(self, analysis_id: str, request: dict[str, Any], result: dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO analyses VALUES (?,?,?,?)",
+                         (analysis_id, json.dumps(request), json.dumps(result), utc_now()))
+
+    def get_analysis(self, analysis_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT result_json FROM analyses WHERE analysis_id = ?", (analysis_id,)).fetchone()
+        return json.loads(row["result_json"]) if row else None
+
     @staticmethod
     def _job_from_row(row: sqlite3.Row) -> dict[str, Any]:
         return {

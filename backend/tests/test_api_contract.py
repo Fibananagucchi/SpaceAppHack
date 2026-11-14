@@ -1,4 +1,4 @@
-"""Step 0: every contract endpoint answers with an explicit state and no invented values."""
+"""Contract endpoints answer with explicit states and never with invented values."""
 
 import asyncio
 import json
@@ -48,18 +48,19 @@ def test_variables_catalog_has_explicit_capabilities(tmp_settings):
     for v in variables:
         assert v["definition"] is None
         assert v["product_boundaries"] == []
-        assert set(v["capabilities"].values()) == {"not_implemented"}
+        assert v["capabilities"] == {"point": "live", "area": "not_implemented", "map_europe": "not_implemented"}
         assert v["source"]["doi"]
         assert not any(k.startswith("_") for k in v)
 
 
-def test_valid_analysis_request_is_not_implemented_and_echoed(tmp_settings):
-    with client_for(tmp_settings()) as client:
+def test_point_analysis_without_token_is_an_explicit_source_error(tmp_settings):
+    # no cube, no token: the source cannot be reached -> explicit source_error, no values
+    with client_for(tmp_settings(token=None)) as client:
         r = client.post("/api/v1/analyses", json=POINT)
-    assert r.status_code == 501
+    assert r.status_code == 502
     body = r.json()
-    assert body["status"] == "not_implemented"
-    assert body["request"]["variable_id"] == "t2m"
+    assert body["status"] == "source_error"
+    assert body["error"]["source"] == "giovanni" and body["error"]["kind"] == "rejected"
     assert body["request"]["location"] == POINT["location"]
     assert "series" not in body and "trend" not in body
 
@@ -81,11 +82,12 @@ def test_invalid_analysis_requests_return_400(tmp_settings):
             assert r.json()["errors"]
 
 
-def test_area_request_is_accepted_as_valid(tmp_settings):
+def test_area_request_is_valid_but_not_implemented_until_step_3(tmp_settings):
     payload = {**POINT, "location": {"type": "area", "bbox": [32.0, 46.0, 36.0, 48.0]}}
     with client_for(tmp_settings()) as client:
         r = client.post("/api/v1/analyses", json=payload)
     assert r.status_code == 501
+    assert r.json()["reason"] == "area_available_from_step_3"
     assert r.json()["request"]["location"]["bbox"] == [32.0, 46.0, 36.0, 48.0]
 
 
