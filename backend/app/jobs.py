@@ -22,6 +22,14 @@ log = logging.getLogger(__name__)
 JobHandler = Callable[[dict[str, Any], "JobContext"], Awaitable[dict[str, Any]]]
 
 
+class JobFailed(Exception):
+    """Raised by a handler to fail a job with a public, explicit error (e.g. source_error)."""
+
+    def __init__(self, error: dict[str, Any]) -> None:
+        super().__init__(error.get("code", "failed"))
+        self.error = error
+
+
 class JobContext:
     """Passed to handlers so they can report real progress and stage."""
 
@@ -89,6 +97,9 @@ class JobRunner:
             result = await handler(job, JobContext(self.store, job_id))
         except asyncio.CancelledError:
             raise  # process is stopping; the job is requeued on next start
+        except JobFailed as failure:
+            self.store.update_job(job_id, status="failed", error=failure.error)
+            return
         except Exception:  # never leak internal or upstream messages to clients
             log.exception("job %s (%s) failed", job_id, job["kind"])
             self.store.update_job(job_id, status="failed", error={

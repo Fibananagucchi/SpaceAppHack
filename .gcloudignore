@@ -5,7 +5,8 @@
 .gitignore
 .gcloudignore
 .venv
-data/
+data/raw/
+data/runtime/
 docs/
 discussion/
 tasks/

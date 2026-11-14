@@ -34,7 +34,7 @@ describe('Request lifecycle', () => {
     await waitFor(() => expect(hook.current.state.kind).toBe('no_data'));
     await act(async () => { release(jsonResponse(result)); await slow; });
     expect(hook.current.state.kind).toBe('no_data');
-    expect(hook.current.state.request?.location.lat).toBe(1);
+    expect(hook.current.state.request?.location).toMatchObject({type:'point',lat:1});
   });
   it('does not retry a 501 automatically', async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ status: 'not_implemented' }, 501));

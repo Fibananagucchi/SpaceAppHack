@@ -18,3 +18,5 @@ for feature in source['features']:
 svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180"><title>World land outline</title><desc>Natural Earth 1:110m land, public domain. Equirectangular projection, WGS84. Geography only; no trend values.</desc><path fill="#afbfc6" d="' + ' '.join(paths) + '"/></svg>\n'
 target = Path(__file__).resolve().parents[1] / 'src/assets/world-outline.svg'
 target.write_text(svg, encoding='utf-8')
+coast = svg.replace('<title>World land outline</title>', '<title>Natural Earth coastline</title>').replace('fill="#afbfc6"', 'fill="none" stroke="#f3f1e7" stroke-width="0.12"')
+(target.parent / 'world-coastline.svg').write_text(coast, encoding='utf-8')

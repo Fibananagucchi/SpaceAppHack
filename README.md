@@ -4,7 +4,7 @@ _Project description will be added once the team approves the concept._
 
 ## Status
 
-Development step 1: trend analysis for a point. `POST /api/v1/analyses` returns a real NASA monthly series for one of seven variables, its rate of change (Sen's slope with a 95 % confidence interval) and three significance tests (Mann-Kendall with autocorrelation correction, OLS t-test with effective sample size, Seasonal Kendall on raw data). Step 2 adds a first look at abrupt changes: a Pettitt change-point test whose result is classified as a step, a gradual change or inconclusive (BIC comparison of a step and a straight line), robust outlier flags, and documented product boundaries (version, calibration, forcing or instrument changes) so that a change of data product is not mistaken for an event. Areas and trend maps come in later steps and answer with explicit states until then. The backend never shows invented, interpolated or placeholder data values: a missing month is `null` with a reason.
+Development steps 1–3. Step 1: trend analysis for a point. `POST /api/v1/analyses` returns a real NASA monthly series for one of seven variables, its rate of change (Sen's slope with a 95 % confidence interval) and three significance tests (Mann-Kendall with autocorrelation correction, OLS t-test with effective sample size, Seasonal Kendall on raw data). Step 2 adds a first look at abrupt changes: a Pettitt change-point test whose result is classified as a step, a gradual change or inconclusive (BIC comparison of a step and a straight line), robust outlier flags, and documented product boundaries (version, calibration, forcing or instrument changes) so that a change of data product is not mistaken for an event. Step 3 adds trend maps of Europe for all seven variables (Sen's slope and Mann-Kendall per grid cell, significance controlled with the Benjamini-Hochberg false discovery rate), area analyses (instant inside Europe from the prepared data cube, a background job via NASA Harmony elsewhere) and re-analysis for any chosen period. The backend never shows invented, interpolated or placeholder data values: a missing month is `null` with a reason.
 
 ## Repository layout
 
@@ -12,6 +12,8 @@ Development step 1: trend analysis for a point. `POST /api/v1/analyses` returns 
 |---|---|
 | `backend/app/` | FastAPI service: API contract v1.1 under `/api/v1`, built frontend under `/` |
 | `backend/pipelines/europe_cube.py` | Downloads real monthly grids for Europe from NASA GES DISC (cloud OPeNDAP) and assembles the data cube |
+| `backend/pipelines/europe_maps.py` | Computes the Europe trend maps (format map-1.2) from the cube |
+| `data/prepared/maps/europe/` | Prepared trend maps (gzip JSON) computed from real data, shipped with the image |
 | `backend/tests/` | Tests (pytest) |
 | `frontend/` | Web interface (built into `frontend/dist/`) |
 | `Dockerfile` | One container: frontend build stage + Python runtime |
@@ -43,6 +45,7 @@ Then open <http://127.0.0.1:8080/api/v1/health>.
 ```bash
 .venv/Scripts/python -m backend.pipelines.europe_cube                    # MERRA-2 T2M, GPM IMERG, GLDAS, AIRS
 .venv/Scripts/python -m backend.pipelines.europe_cube --products omi_no2 # OMI NO2 (daily granules, slower)
+.venv/Scripts/python -m backend.pipelines.europe_maps                    # trend maps from the cube
 ```
 Raw subsets go to `data/raw/` and assembled cubes to `data/runtime/cube/europe/`. Both are ignored by git. Downloads resume where they stopped.
 

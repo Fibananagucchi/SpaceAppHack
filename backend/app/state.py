@@ -153,6 +153,17 @@ class StateStore:
             row = conn.execute("SELECT result_json FROM analyses WHERE analysis_id = ?", (analysis_id,)).fetchone()
         return json.loads(row["result_json"]) if row else None
 
+    def find_active_job(self, kind: str, science_request: dict[str, Any]) -> dict[str, Any] | None:
+        """Queued or running job of this kind whose request (ignoring request_id) is identical."""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM jobs WHERE kind = ? AND status IN ('queued', 'running')",
+                                (kind,)).fetchall()
+        for row in rows:
+            job = self._job_from_row(row)
+            if {k: v for k, v in job["request"].items() if k != "request_id"} == science_request:
+                return job
+        return None
+
     @staticmethod
     def _job_from_row(row: sqlite3.Row) -> dict[str, Any]:
         return {

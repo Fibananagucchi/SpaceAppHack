@@ -13,13 +13,19 @@ export interface Variable {
   coverage: { start: string; end: string; surface: string; checked_at?: string };
   native_resolution: { lat_deg: number; lon_deg: number; time: string };
   capabilities: Record<string, string>;
+  limitations?: string[];
+  summary?:{definition:string;limitation:string};
 }
 
+export interface PointLocation {type:'point';lat:number;lon:number}
+export interface AreaLocation {type:'area';bbox:[number,number,number,number]}
 export interface AnalysisRequest {
+  request_id?: string;
   variable_id: string;
-  location: { type: 'point'; lat: number; lon: number };
+  location: PointLocation | AreaLocation;
   period: { start: string; end: string };
 }
+export type PointAnalysisRequest = AnalysisRequest & {location:PointLocation};
 
 export type StateKind = 'idle' | 'loading' | 'connecting' | 'queued' | 'running' | 'ready' |
   'no_data' | 'source_error' | 'insufficient_for_test' | 'not_implemented' | 'not_found' |
@@ -68,6 +74,8 @@ export function parseVariables(data: ObjectValue): Variable[] {
         (item.definition !== null && typeof item.definition !== 'string') ||
         !Object.values(item.capabilities).every(v => typeof v === 'string')) throw new Error('invalid_catalogue');
     const id = item.variable_id as string;
+    if(item.limitations!==undefined&&(!Array.isArray(item.limitations)||!item.limitations.every(v=>typeof v==='string')))throw new Error('invalid_catalogue');
+    if(item.summary!==undefined&&(!isObject(item.summary)||typeof item.summary.definition!=='string'||typeof item.summary.limitation!=='string'))throw new Error('invalid_catalogue');
     if (ids.has(id)) throw new Error('invalid_catalogue');
     ids.add(id);
     return item as unknown as Variable;
@@ -78,7 +86,7 @@ const finitePositive = (v: unknown): v is number => typeof v === 'number' && Num
 export const isMonth = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 
 export function requestFromFields(variableId: string, lat: string, lon: string, start: string, end: string):
-  { request: AnalysisRequest } | { error: string } {
+  { request: PointAnalysisRequest } | { error: string } {
   if (!lat.trim() || !lon.trim()) return { error: 'Enter both latitude and longitude.' };
   if (lat.includes(',') || lon.includes(',')) return { error: 'Use a dot for decimal coordinates, for example 50.45.' };
   const latitude = Number(lat), longitude = Number(lon);
@@ -88,6 +96,22 @@ export function requestFromFields(variableId: string, lat: string, lon: string, 
   if (start > end) return { error: 'The start month must not be later than the end month.' };
   if (!variableId) return { error: 'Choose a variable first.' };
   return { request: { variable_id: variableId, location: { type: 'point', lat: latitude, lon: longitude }, period: { start, end } } };
+}
+
+export function requestFromAreaFields(variableId:string,fields:string[],start:string,end:string):{request:AnalysisRequest}|{error:string} {
+  if(fields.length!==4||fields.some(v=>!v.trim()))return {error:'Enter all four area bounds.'};
+  if(fields.some(v=>v.includes(',')))return {error:'Use a dot for decimal coordinates.'};
+  const [west,south,east,north]=fields.map(Number);
+  if(![west,south,east,north].every(Number.isFinite)||Math.abs(west)>180||Math.abs(east)>180||Math.abs(south)>90||Math.abs(north)>90)return {error:'Area coordinates are outside WGS84 limits.'};
+  if(west>=east||south>=north)return {error:'West must be less than east, and south less than north. Boxes cannot cross 180°.'};
+  if(!isMonth(start)||!isMonth(end)||start>end)return {error:'Enter an ordered period as YYYY-MM.'};
+  if(!variableId)return {error:'Choose a variable first.'};
+  return {request:{variable_id:variableId,location:{type:'area',bbox:[west,south,east,north]},period:{start,end}}};
+}
+
+export function sameLocation(a:unknown,b:AnalysisRequest['location']):boolean {
+  if(!isObject(a)||a.type!==b.type)return false;
+  return b.type==='point'?a.lat===b.lat&&a.lon===b.lon:Array.isArray(a.bbox)&&a.bbox.length===4&&a.bbox.every((v,i)=>v===b.bbox[i]);
 }
 
 export function getWarnings(data: ObjectValue): PublicWarning[] {
@@ -117,8 +141,7 @@ export function analysisState(response: ApiResponse, request: AnalysisRequest): 
   const base = { request, warnings: getWarnings(data) };
   if (isObject(data.request)) {
     const echoed = data.request;
-    if (echoed.variable_id !== request.variable_id || !isObject(echoed.location) || echoed.location.type !== 'point' ||
-        echoed.location.lat !== request.location.lat || echoed.location.lon !== request.location.lon ||
+    if (echoed.variable_id !== request.variable_id || !sameLocation(echoed.location,request.location) ||
         !isObject(echoed.period) || echoed.period.start !== request.period.start || echoed.period.end !== request.period.end) {
       return { ...base, kind: 'protocol_error' };
     }
@@ -137,7 +160,7 @@ export function analysisState(response: ApiResponse, request: AnalysisRequest): 
       progress: readProgress(data), startedAt: Date.now() };
   }
   if (typeof data.analysis_id === 'string' && isObject(data.series)) {
-    if (data.series.status === 'no_data') return { ...base, kind: 'no_data' };
+    if (data.series.status === 'no_data') return { ...base, kind: 'no_data',reason:typeof data.series.reason==='string'?data.series.reason:undefined };
     if (data.series.status === 'insufficient_for_test') return { ...base, kind: 'insufficient_for_test' };
     if (data.series.status === 'source_error') return { ...base, kind: 'source_error' };
     if (data.series.status === 'ok') return { ...base, kind: 'ready', analysisId: data.analysis_id, result: data,

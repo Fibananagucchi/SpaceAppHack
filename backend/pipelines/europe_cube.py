@@ -378,6 +378,7 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"comma-separated: {', '.join(PRODUCTS)}; or 'all'")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--limit", type=int, default=None, help="only the first N granules (testing)")
+    parser.add_argument("--with-maps", action="store_true", help="compute the Europe trend maps afterwards")
     args = parser.parse_args(argv)
     if args.products.strip() == "all":
         keys = list(DEFAULT_ORDER) + ["omi_no2"]  # NO2 last: 7800 daily granules
@@ -386,7 +387,12 @@ def main(argv: list[str] | None = None) -> int:
     unknown = [k for k in keys if k not in PRODUCTS]
     if unknown:
         parser.error(f"unknown products: {unknown}")
-    return asyncio.run(run(keys, args.concurrency, args.limit))
+    code = asyncio.run(run(keys, args.concurrency, args.limit))
+    if args.with_maps and code == 0:
+        from backend.pipelines import europe_maps
+        variables = sorted({vid for k in keys for vid in PRODUCTS[k].variables})
+        code = europe_maps.main(["--variables", ",".join(variables)])
+    return code
 
 
 if __name__ == "__main__":

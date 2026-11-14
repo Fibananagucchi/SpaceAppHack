@@ -218,3 +218,85 @@ def test_step_in_series_produces_change_seam_fields_and_warning(client_with_seri
     assert body["breaks"]["trend_affected_by_change"] is True
     assert {"code": "change_may_affect_trend", "change_id": cp["change_id"], "date": cp["date"]} in body["warnings"]
     assert not any(w["code"] == "product_boundary_in_period" for w in body["warnings"])  # AIRS: none documented
+
+
+
+# ---------------------------------------------------------------------------------------------
+# Areas and request_id (step 3)
+# ---------------------------------------------------------------------------------------------
+def test_area_inside_europe_is_an_area_weighted_cube_mean(tmp_settings):
+    settings = tmp_settings()
+    write_tiny_cube(settings.data_dir)
+    s, resolved = series.area_from_cube(settings.data_dir, "t2m", (32.0, 45.9, 33.5, 47.2))
+    assert resolved["cells_total"] == 6 and resolved["cells_with_data"] == 6
+    assert resolved["bbox_used"] == [32.1875, 45.75, 33.4375, 47.25]
+    assert s.values[0] == pytest.approx(280.0 - 273.15, abs=1e-4)
+    assert s.missing_reasons[2] is None  # 5 of 6 cells valid >= 50 %
+    with TestClient(create_app(settings)) as client:
+        body = client.post("/api/v1/analyses", json={"variable_id": "t2m", "request_id": "abc-123",
+                                                     "location": {"type": "area", "bbox": [32.0, 45.9, 33.5, 47.2]}}).json()
+    assert body["request_id"] == "abc-123"
+    assert body["location_resolved"]["type"] == "area" and body["location_resolved"]["cells_total"] == 6
+    assert body["provenance"]["source_service"] == "europe_cube"
+    assert body["series"]["status"] == "ok"
+    assert body["trend"]["monthly_anomalies"]["mann_kendall"]["status"] == "insufficient_for_test"  # 24 months only
+
+
+def test_area_smaller_than_a_grid_cell_is_explicit(tmp_settings):
+    settings = tmp_settings()
+    write_tiny_cube(settings.data_dir)
+    with TestClient(create_app(settings)) as client:
+        body = client.post("/api/v1/analyses", json={"variable_id": "t2m",
+                                                     "location": {"type": "area", "bbox": [32.6, 46.1, 32.7, 46.2]}}).json()
+    assert body["series"]["status"] == "no_data" and body["series"]["reason"] == "area_smaller_than_grid_cell"
+
+
+def test_server_generates_request_id_when_missing(client_with_series):
+    with client_with_series(fake_series()) as client:
+        body = client.post("/api/v1/analyses", json=POINT).json()
+    assert body["request_id"].startswith("r_")
+    assert body["request"]["request_id"] is None
+
+
+def test_area_job_deduplicates_and_completes_with_analysis(tmp_settings, monkeypatch):
+    import asyncio
+    import time
+
+    async def slow_harmony(settings, store, variable_id, bbox, on_stage=None):
+        if on_stage:
+            on_stage("waiting_for_source")
+        await asyncio.sleep(0.4)
+        s = fake_series()
+        s.provenance["source_service"] = "harmony_area_average"
+        return s
+
+    monkeypatch.setattr(analysis, "fetch_harmony_area", slow_harmony)
+    payload = {"variable_id": "precip", "location": {"type": "area", "bbox": [-50.0, -25.0, -45.0, -20.0]}}
+    with TestClient(create_app(tmp_settings())) as client:
+        first = client.post("/api/v1/analyses", json={**payload, "request_id": "one"})
+        second = client.post("/api/v1/analyses", json={**payload, "request_id": "two"})
+        assert first.status_code == second.status_code == 202
+        assert first.json()["job_id"] == second.json()["job_id"]  # same science request -> same job
+        assert second.json()["request_id"] == "two"
+        job_id = first.json()["job_id"]
+        for _ in range(100):
+            job = client.get(f"/api/v1/jobs/{job_id}").json()
+            if job["status"] == "complete":
+                break
+            time.sleep(0.05)
+        assert job["status"] == "complete"
+        assert job["result"]["type"] == "analysis" and job["result"]["url"].endswith(job["result"]["id"])
+        result = client.get(job["result"]["url"]).json()
+    assert result["location_resolved"]["averaging"].startswith("area mean computed by the NASA Giovanni")
+    assert result["provenance"]["source_service"] == "harmony_area_average"
+    assert result["series"]["status"] == "ok"
+
+
+def test_parse_harmony_csv():
+    lines = ["User Start Date:,1998-01-01", "Fill Value:,-9999.900390625", ",", "time,mean_x",
+             "1998-01-01T00:00:00,0.06", "1998-02-01T00:00:00,-9999.900390625"]
+    text = chr(10).join(lines)
+    fill, rows = series.parse_harmony_csv(text)
+    assert fill == pytest.approx(-9999.9004)
+    months, values, reasons, _ = series._monthly_from_rows(rows, fill, daily=False)
+    assert values[0] == pytest.approx(0.06) and np.isnan(values[1]) and reasons[1] == "fill_value"

@@ -15,8 +15,9 @@ from typing import Any
 
 COVERAGE_CHECKED_AT = "2026-11-14"
 
-# Capabilities in step 1: live point analyses; areas (step 3) and maps (step 3) are explicit.
-CAPABILITIES = {"point": "live", "area": "not_implemented", "map_europe": "not_implemented"}
+# Capabilities in step 3: live points; areas live inside the Europe domain, background job elsewhere;
+# Europe trend maps precomputed from the cube (status per map in /api/v1/maps/europe).
+CAPABILITIES = {"point": "live", "area": "live_in_europe_job_elsewhere", "map_europe": "precomputed"}
 
 _VARIABLES: list[dict[str, Any]] = [
     {
@@ -268,7 +269,10 @@ def product_boundaries(variable_id: str) -> list[dict[str, Any]]:
 def public_variable(variable: dict[str, Any], capabilities: dict[str, str]) -> dict[str, Any]:
     """Catalog entry as returned by the API (no internal fields)."""
     entry = {k: deepcopy(v) for k, v in variable.items() if not k.startswith("_")}
-    entry["definition"] = None  # texts come from design/team; null until provided
+    texts = DEFINITIONS.get(variable["variable_id"], {})
+    entry["definition"] = texts.get("definition")
+    entry["limitations"] = list(texts.get("limitations", []))
+    entry["summary"] = dict(SUMMARIES.get(variable["variable_id"], {})) or None
     entry["coverage"]["checked_at"] = COVERAGE_CHECKED_AT
     entry["capabilities"] = dict(capabilities)
     entry["product_boundaries"] = product_boundaries(variable["variable_id"])  # documented only
@@ -285,3 +289,110 @@ def get_variable(variable_id: str) -> dict[str, Any] | None:
         if v["variable_id"] == variable_id:
             return v
     return None
+
+
+# ---------------------------------------------------------------------------------------------
+# Plain-English definitions for onboarding (draft by Claude Code; wording reviewed with Codex).
+# Only facts from product documentation or the data themselves.
+# ---------------------------------------------------------------------------------------------
+DEFINITIONS: dict[str, dict[str, Any]] = {
+    "t2m": {
+        "definition": ("Air temperature about 2 metres above the ground or sea, as a monthly mean. It comes from "
+                       "MERRA-2, a NASA reanalysis: a weather model that combines many observations "
+                       "(stations, weather balloons, satellites) into one consistent global record."),
+        "limitations": [
+            "Reanalysis: model output constrained by observations, not a direct measurement at one place.",
+            "One value covers a grid cell of 0.5° x 0.625° (roughly 50 km), not a single town.",
+            "MERRA-2 was produced in four separate streams starting in 1980, 1992, 2001 and 2011; changes near "
+            "those dates may come from the product.",
+        ],
+    },
+    "precip": {
+        "definition": ("Total rain and snow that fell during the month, in millimetres. It comes from GPM IMERG, "
+                       "which merges measurements from many satellites and calibrates them with rain-gauge data."),
+        "limitations": [
+            "Satellite-based estimate, not a rain-gauge reading at one place.",
+            "One value covers a grid cell of 0.1° (roughly 10 km); the Europe map uses 0.5° averages.",
+            "Calibration changed from the TRMM era to the GPM era in June 2014; changes near that date may come "
+            "from the product.",
+            "The final monthly product currently ends in September 2025.",
+        ],
+    },
+    "soil_moisture": {
+        "definition": ("Water held in the top 10 cm of soil, in kilograms per square metre (equal to millimetres "
+                       "of water in that layer). It is simulated by the GLDAS-2.1 Noah land model, which is driven "
+                       "by observed weather data."),
+        "limitations": [
+            "Model estimate, not a direct measurement.",
+            "Land only: there are no values over the sea.",
+            "One value covers a grid cell of 0.25° (roughly 25 km).",
+            "The model's input data changed in March 2001 and June 2025; changes near those dates may come from "
+            "the product.",
+        ],
+    },
+    "evapotranspiration": {
+        "definition": ("Water that returns to the air during the month from soil, plants and open water, in "
+                       "millimetres. It is simulated by the GLDAS-2.1 Noah land model."),
+        "limitations": [
+            "Model estimate, not a direct measurement.",
+            "Land only: there are no values over the sea.",
+            "One value covers a grid cell of 0.25° (roughly 25 km).",
+            "The model's input data changed in March 2001 and June 2025; changes near those dates may come from "
+            "the product.",
+        ],
+    },
+    "surface_runoff": {
+        "definition": ("Water that flows away over the land surface instead of soaking into the ground, in "
+                       "millimetres per month. It is simulated by the GLDAS-2.1 Noah land model. It is not the "
+                       "flow of a river."),
+        "limitations": [
+            "Model estimate for each grid cell; it is not river discharge.",
+            "Land only: there are no values over the sea.",
+            "One value covers a grid cell of 0.25° (roughly 25 km).",
+            "The model's input data changed in March 2001 and June 2025; changes near those dates may come from "
+            "the product.",
+        ],
+    },
+    "airs_surface_air_temp": {
+        "definition": ("Air temperature near the surface, measured from space by the AIRS instrument on NASA's "
+                       "Aqua satellite during its daytime pass, as a monthly mean."),
+        "limitations": [
+            "Daytime overpass only (early afternoon local time), so it is not a 24-hour average.",
+            "Fewer valid measurements in cloudy regions.",
+            "One value covers a grid cell of 1° (roughly 100 km).",
+            "The record starts in September 2002.",
+        ],
+    },
+    "no2_tropo": {
+        "definition": ("Nitrogen dioxide (NO2) in the lower atmosphere, measured from space by the OMI instrument "
+                       "on NASA's Aura satellite. The unit is 10^15 molecules in a column of air above one square "
+                       "centimetre. NO2 is produced mainly by burning fuel."),
+        "limitations": [
+            "Cloudy days are removed, so many months have gaps; a month needs at least 10 valid days.",
+            "An instrument problem (row anomaly) since June 2007 reduces coverage; changes near 2007-2008 may come "
+            "from the instrument.",
+            "It is the amount in the whole lower-atmosphere column, not the concentration at street level.",
+            "The record currently ends in March 2026.",
+        ],
+    },
+}
+
+
+# Short onboarding texts proposed by Codex (discussion/1754-codex-definitions-and-area-id.md), checked against
+# the facts above. Long `definition` / `limitations` stay for the data passport.
+SUMMARIES: dict[str, dict[str, str]] = {
+    "t2m": {"definition": "Air temperature about 2 metres above the ground.",
+            "limitation": "Reanalysis combines observations and a model; a grid cell is not a local thermometer."},
+    "precip": {"definition": "Monthly precipitation, expressed as a depth of water.",
+               "limitation": "Satellite and gauge-calibrated estimates; this is a monthly amount, not a daily forecast."},
+    "soil_moisture": {"definition": "Water stored in the top 10 cm of soil.",
+                      "limitation": "A model estimate in kg/m², not a percentage of soil wetness."},
+    "evapotranspiration": {"definition": "Water transferred from land and plants to the atmosphere.",
+                           "limitation": "A model estimate, accumulated for each month."},
+    "surface_runoff": {"definition": "Water leaving the land surface as runoff.",
+                       "limitation": "Modelled surface runoff; not measured river discharge."},
+    "airs_surface_air_temp": {"definition": "Satellite estimates of near-surface air temperature on daytime overpasses.",
+                              "limitation": "Air temperature, not land-surface skin temperature; missing retrievals remain gaps."},
+    "no2_tropo": {"definition": "Nitrogen dioxide through the lower atmosphere above a grid cell.",
+                  "limitation": "A column amount, not ground-level concentration; a monthly value needs enough valid days."},
+}

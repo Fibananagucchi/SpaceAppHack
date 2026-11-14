@@ -58,13 +58,14 @@ export function StatusNotice({ state, onRetry, onRefresh }: { state: ViewState; 
   }, [busy, state.startedAt]);
   const info = copy[state.kind];
   const unavailableService = state.kind === 'source_error' && state.reason === 'service_unavailable';
-  const title = unavailableService ? 'Could not reach the analysis service.' : info.title;
+  const tooSmall=state.kind==='no_data'&&state.reason==='area_smaller_than_grid_cell';
+  const title = tooSmall?'This area contains no grid-cell centres.':unavailableService ? 'Could not reach the analysis service.' : info.title;
   const retryable = ['source_error', 'not_found', 'protocol_error'].includes(state.kind);
   return <div className={`status-notice status-${state.kind}`} data-state={state.kind}>
     <div className="state-brackets" aria-hidden="true"><span>[</span><span>]</span></div>
     <p className="eyebrow">{info.label}</p>
     <h2>{title}</h2>
-    <p className="state-description">{info.description}</p>
+    <p className="state-description">{tooSmall?'Enlarge the area or choose a point. No value has been substituted.':info.description}</p>
     {state.stage && stageCopy[state.stage] && busy && <p className="stage-label">{stageCopy[state.stage]}</p>}
     {busy && <div className="request-progress">
       {state.progress && state.kind !== 'connecting' ? <>
@@ -76,7 +77,7 @@ export function StatusNotice({ state, onRetry, onRefresh }: { state: ViewState; 
     {state.testUnavailable && state.kind !== 'insufficient_for_test' && <aside className="warning-notice"><p>Observations are available. One or more trend tests cannot be run on this series.</p></aside>}
     <WarningNotices warnings={state.warnings} />
     {state.request && <dl className="request-receipt">
-      <div><dt>Requested point</dt><dd>{state.request.location.lat}° latitude / {state.request.location.lon}° longitude</dd></div>
+      <div><dt>Requested {state.request.location.type}</dt><dd>{state.request.location.type==='point'?`${state.request.location.lat}° latitude / ${state.request.location.lon}° longitude`:`W/S/E/N: ${state.request.location.bbox.join(' / ')}°`}</dd></div>
       <div><dt>Requested period</dt><dd>{state.request.period.start} — {state.request.period.end}</dd></div>
     </dl>}
     {retryable && onRetry && <button className="button button-secondary" onClick={onRetry}>{state.kind === 'not_found' ? 'Run request again' : 'Retry request'} <span aria-hidden="true">↗</span></button>}

@@ -24,6 +24,7 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install -r backend/requirements.txt
 
 COPY backend/ backend/
+COPY data/prepared/ prepared/
 COPY --from=frontend /frontend/dist/ frontend_dist/
 
 # Runtime paths. On Cloud Run, DATA_DIR is overridden to the mounted Cloud Storage bucket

@@ -18,6 +18,7 @@ Missing values stay NaN with a reason. Nothing is interpolated or filled.
 from __future__ import annotations
 
 import calendar
+import json
 import math
 from dataclasses import dataclass, field
 from datetime import date
@@ -276,3 +277,217 @@ async def get_point_series(settings: Settings, store: StateStore, variable_id: s
         if series is not None:
             return series
     return await fetch_giovanni(settings, store, variable_id, lat, lon)
+
+
+# ---------------------------------------------------------------------------------------------
+# Areas (step 3)
+# ---------------------------------------------------------------------------------------------
+AREA_MIN_CELL_FRACTION = 0.5     # a month is valid if >= 50 % of the cells with data are valid
+HARMONY_POLL_S = 10
+HARMONY_TIMEOUT_S = 30 * 60
+HARMONY_MAX_POLL_FAILURES = 5
+
+
+class AreaTooSmall(Exception):
+    """No grid-cell centre of the product lies inside the requested box."""
+
+
+def bbox_in_europe(bbox: tuple[float, float, float, float]) -> bool:
+    west, south, east, north = bbox
+    e_west, e_south, e_east, e_north = storage.EUROPE_BBOX
+    return e_west <= west and east <= e_east and e_south <= south and north <= e_north
+
+
+def area_from_cube(data_dir: Path, variable_id: str, bbox: tuple[float, float, float, float]
+                   ) -> tuple[MonthlySeries, dict[str, Any]]:
+    """Area-weighted (cos latitude) monthly mean of the cube cells whose centre lies inside bbox."""
+    folder = storage.cube_dir(data_dir, variable_id)
+    meta = storage.read_json(folder / "meta.json")
+    variable = catalog.get_variable(variable_id)
+    res = variable["native_resolution"]
+    west, south, east, north = bbox
+    lats = np.asarray(meta["lat"])
+    lons = np.asarray(meta["lon"])
+    li = np.where((lats >= south) & (lats <= north))[0]
+    lj = np.where((lons >= west) & (lons <= east))[0]
+    if li.size == 0 or lj.size == 0:
+        raise AreaTooSmall()
+    cube = np.load(folder / "data.npy", mmap_mode="r")
+    block = np.asarray(cube[li[0]:li[-1] + 1, lj[0]:lj[-1] + 1, :], dtype="float64")
+    times: list[str] = meta["times"]
+    weights = np.cos(np.deg2rad(lats[li]))[:, None] * np.ones((1, lj.size))
+    has_data = np.isfinite(block).any(axis=2)
+    n_with_data = int(has_data.sum())
+    values = np.full(len(times), np.nan)
+    reasons: list[str | None] = []
+    no_granule = set(meta.get("months_without_granule", [])) | set(meta.get("months_with_failed_downloads", []))
+    for k, tm in enumerate(times):
+        field_ = block[:, :, k]
+        valid = np.isfinite(field_) & has_data
+        if n_with_data and valid.sum() >= AREA_MIN_CELL_FRACTION * n_with_data:
+            w = weights[valid]
+            values[k] = float(np.sum(field_[valid] * w) / np.sum(w))
+            reasons.append(None)
+        else:
+            reasons.append("no_granule" if tm in no_granule else "too_few_cells_with_data")
+    product = meta["product"]
+    averaging = ("area-weighted (cos latitude) mean of grid cells whose centre lies inside the box; a month is "
+                 f"valid only if at least {int(AREA_MIN_CELL_FRACTION * 100)} % of the cells with data are valid")
+    resolved = {
+        "type": "area", "requested": {"bbox": list(bbox)},
+        "bbox_used": [round(float(lons[lj[0]] - res["lon_deg"] / 2), 5), round(float(lats[li[0]] - res["lat_deg"] / 2), 5),
+                      round(float(lons[lj[-1]] + res["lon_deg"] / 2), 5), round(float(lats[li[-1]] + res["lat_deg"] / 2), 5)],
+        "cells_total": int(li.size * lj.size), "cells_with_data": n_with_data,
+        "grid": {"lat_res": res["lat_deg"], "lon_res": res["lon_deg"]},
+        "averaging": averaging,
+    }
+    aggregation: dict[str, Any] = {"spatial": averaging}
+    if (folder / "valid_days.npy").is_file():
+        aggregation.update({"from": "daily", "rule": f"mean of valid days; month missing if fewer than "
+                                                     f"{MIN_VALID_DAYS} valid days (per cell, before the area mean)"})
+    series = MonthlySeries(
+        times=times, values=to_display_units(variable_id, times, values), missing_reasons=reasons,
+        grid_cell={}, provenance={"source_service": "europe_cube",
+                                  "upstream": "NASA GES DISC cloud OPeNDAP (prepared Europe cube)",
+                                  "product": product["short_name"], "version": product["version"],
+                                  "doi": variable["source"]["doi"], "retrieved_at": meta.get("assembled_at"),
+                                  "from_cache": True},
+        aggregation=aggregation,
+    )
+    if n_with_data == 0:
+        series.notes.append("source_reported_no_data_for_location")
+    return series, resolved
+
+
+def parse_harmony_csv(text: str) -> tuple[float | None, list[tuple[str, float]]]:
+    fill: float | None = None
+    rows: list[tuple[str, float]] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.lower().startswith("fill value"):
+            try:
+                fill = float(line.split(",", 1)[1])
+            except (IndexError, ValueError):
+                fill = None
+            continue
+        key, _, value = line.partition(",")
+        if key[:2] in ("19", "20") and value:
+            try:
+                rows.append((key[:10], float(value)))
+            except ValueError:
+                rows.append((key[:10], float("nan")))
+    return fill, rows
+
+
+def harmony_cache_key(variable_id: str, bbox: tuple[float, float, float, float]) -> str:
+    giovanni_id = catalog.get_variable(variable_id)["_internal"]["giovanni_id"]
+    # A cached area mean belongs to the exact requested box, not a rounded neighbour.
+    # Versioning avoids reusing old entries whose original bounds were not stored.
+    coordinates = [0.0 if value == 0 else float(value) for value in bbox]
+    return f"harmony-v2|{giovanni_id}|{json.dumps(coordinates, separators=(',', ':'), allow_nan=False)}"
+
+
+def harmony_area_cached(store: StateStore, variable_id: str, bbox: tuple[float, float, float, float]) -> bool:
+    return store.get_cached_series(harmony_cache_key(variable_id, bbox), max_age_s=GIOVANNI_CACHE_TTL_S) is not None
+
+
+async def fetch_harmony_area(settings: Settings, store: StateStore, variable_id: str,
+                             bbox: tuple[float, float, float, float], on_stage=None) -> MonthlySeries:
+    """Area mean from NASA Harmony (Giovanni averaging service). Slow (minutes): run as a job."""
+    import asyncio
+
+    variable = catalog.get_variable(variable_id)
+    internal = variable["_internal"]
+    west, south, east, north = bbox
+    cache_key = harmony_cache_key(variable_id, bbox)
+    cached = store.get_cached_series(cache_key, max_age_s=GIOVANNI_CACHE_TTL_S)
+    if cached:
+        payload, retrieved_at = cached
+        from_cache = True
+    else:
+        if not settings.token_configured:
+            raise SourceError("harmony", "rejected")
+        headers = {"Authorization": f"Bearer {settings.earthdata_token}"}
+        start = variable["coverage"]["start"] + "-01T00:00:00Z"
+        end = date.today().strftime("%Y-%m-%dT23:59:59Z")
+        url = (f"https://harmony.earthdata.nasa.gov/{internal['collection_concept_id']}"
+               "/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset")
+        params = [("subset", f"lat({south}:{north})"), ("subset", f"lon({west}:{east})"),
+                  ("subset", f'time("{start}":"{end}")'), ("variable", internal["giovanni_id"]),
+                  ("average", "area"), ("format", "text/csv")]
+        try:
+            async with httpx.AsyncClient(timeout=settings.upstream_timeout_s) as client:
+                submit = await client.get(url, params=params, headers=headers, follow_redirects=False)
+                if submit.status_code in (401, 403):
+                    raise SourceError("harmony", "rejected")
+                if submit.status_code == 429:
+                    raise SourceError("harmony", "rate_limited", retry_after_s=60)
+                location = submit.headers.get("Location", "")
+                if submit.status_code != 303 or not location:
+                    raise SourceError("harmony", "unavailable")
+                job_url = location if location.startswith("http") else f"https://harmony.earthdata.nasa.gov{location}"
+                if on_stage:
+                    on_stage("waiting_for_source")
+                waited = 0
+                transient_failures = 0
+                while True:
+                    # Polling tolerates short network hiccups (connection resets were seen on CMR/Harmony);
+                    # only repeated failures fail the job.
+                    try:
+                        status_resp = await client.get(job_url, headers=headers)
+                        ok = status_resp.status_code == 200
+                    except httpx.HTTPError:
+                        ok = False
+                    if not ok:
+                        transient_failures += 1
+                        if transient_failures > HARMONY_MAX_POLL_FAILURES:
+                            raise SourceError("harmony", "unavailable")
+                        await asyncio.sleep(HARMONY_POLL_S)
+                        waited += HARMONY_POLL_S
+                        continue
+                    transient_failures = 0
+                    job = status_resp.json()
+                    state = job.get("status")
+                    if state == "successful":
+                        break
+                    if state in ("failed", "canceled", "complete_with_errors"):
+                        raise SourceError("harmony", "unavailable")
+                    if waited >= HARMONY_TIMEOUT_S:
+                        raise SourceError("harmony", "timeout")
+                    await asyncio.sleep(HARMONY_POLL_S)
+                    waited += HARMONY_POLL_S
+                links = [link for link in job.get("links", []) if link.get("rel") == "data"]
+                if not links:
+                    raise SourceError("harmony", "unavailable")
+                if on_stage:
+                    on_stage("downloading")
+                data = await client.get(links[0]["href"], headers=headers, follow_redirects=True)
+                if data.status_code != 200:
+                    raise SourceError("harmony", "unavailable")
+        except httpx.TimeoutException as exc:
+            raise SourceError("harmony", "timeout") from exc
+        except httpx.HTTPError as exc:
+            raise SourceError("harmony", "unavailable") from exc
+        fill, rows = parse_harmony_csv(data.text)
+        payload = {"fill": fill, "rows": rows}
+        retrieved_at = utc_now()
+        store.put_cached_series(cache_key, payload, source="harmony", product=internal["giovanni_id"],
+                                retrieved_at=retrieved_at)
+        from_cache = False
+
+    rows = [tuple(r) for r in payload["rows"]]
+    fill = payload["fill"] if payload["fill"] is not None else float("nan")
+    daily = variable["native_resolution"]["time"] == "daily"
+    months, raw, reasons, _ = _monthly_from_rows(rows, fill, daily)
+    aggregation: dict[str, Any] = {"spatial": "area mean computed by the NASA Giovanni averaging service (Harmony)"}
+    if daily:
+        aggregation.update({"from": "daily", "rule": f"mean of valid days of the area mean; month missing if "
+                                                     f"fewer than {MIN_VALID_DAYS} valid days"})
+    return MonthlySeries(
+        times=months, values=to_display_units(variable_id, months, raw), missing_reasons=reasons, grid_cell={},
+        provenance={"source_service": "harmony_area_average",
+                    "upstream": "NASA Harmony — Giovanni averaging service (area mean)",
+                    "product": variable["source"]["product"], "version": variable["source"]["version"],
+                    "doi": variable["source"]["doi"], "retrieved_at": retrieved_at, "from_cache": from_cache},
+        aggregation=aggregation,
+    )

@@ -6,9 +6,10 @@ import { month, monthIndex, number } from './format';
 
 export interface ChartLine { key: string; label: string; points: { t: string; y: number }[]; dashed?: boolean }
 export interface ChartMarker { id: string; date: string; label: string; kind: 'change' | 'boundary' | 'outlier'; tentative?: boolean }
-export function TimeSeries({ points, mode, unit, lines = [], markers = [], selectedMarker, onSelectMarker }: {
+export function TimeSeries({ points, mode, unit, lines = [], markers = [], selectedMarker, onSelectMarker,plotId='observed-series-plot' }: {
   points: SeriesPoint[]; mode: DisplayMode; unit: string; lines?: ChartLine[]; markers?: ChartMarker[];
   selectedMarker?: string; onSelectMarker?: (id: string) => void;
+  plotId?:string;
 }) {
   const [active, setActive] = useState(points.length-1);
   useEffect(()=>{
@@ -43,7 +44,7 @@ export function TimeSeries({ points, mode, unit, lines = [], markers = [], selec
   const visibleMarkers = markers.filter(m => monthIndex(m.date) >= start && monthIndex(m.date) <= end);
   return <figure className="time-series">
     <figcaption><span>{mode === 'raw' ? 'Monthly observations' : 'Monthly anomalies'} <span className="text-muted">/ {unit}</span></span><span className="eyebrow">{month(points[0].t)} — {month(points[points.length-1].t)}</span></figcaption>
-    {values.length > 0 && <svg id="observed-series-plot" viewBox="0 0 800 340" role="group" tabIndex={0} aria-label="Monthly time series. Left and right arrows inspect months; Home and End select the first and last month." onPointerMove={inspect} onKeyDown={key}>
+    {values.length > 0 && <svg id={plotId} viewBox="0 0 800 340" role="group" tabIndex={0} aria-label="Monthly time series. Left and right arrows inspect months; Home and End select the first and last month." onPointerMove={inspect} onKeyDown={key}>
       <title>{mode === 'raw' ? 'Monthly observations' : 'Monthly anomalies'} in {unit}</title>
       <desc>Missing months remain gaps. Dashed lines are fitted trends returned by the API, not observations. The table below provides the numeric values.</desc>
       {[0,.25,.5,.75,1].map(f => <g key={f}><line x1="120" x2="772" y1={y(low+(high-low)*f)} y2={y(low+(high-low)*f)} className="chart-grid" /><text x="110" y={y(low+(high-low)*f)+4} textAnchor="end">{number(low+(high-low)*f,3)}</text></g>)}

@@ -34,6 +34,7 @@ class Settings:
     earthdata_token: str | None
     data_dir: Path        # prepared real data: Europe cube, maps, durable cache
     raw_dir: Path         # raw per-granule downloads used by pipelines (resumable)
+    prepared_dir: Path    # small prepared real-data files shipped with the code (maps)
     state_db: Path        # SQLite with jobs and hot cache (ephemeral on Cloud Run)
     frontend_dist: Path   # built frontend (static files)
     environment: str      # "local" | "cloud_run" | value of APP_ENV
@@ -63,6 +64,7 @@ def load_settings() -> Settings:
         earthdata_token=token,
         data_dir=Path(os.environ.get("DATA_DIR", runtime)),
         raw_dir=Path(os.environ.get("RAW_DIR", REPO_ROOT / "data" / "raw")),
+        prepared_dir=Path(os.environ.get("PREPARED_DIR", REPO_ROOT / "data" / "prepared")),
         state_db=Path(os.environ.get("STATE_DB", runtime / "state.sqlite")),
         frontend_dist=Path(os.environ.get("FRONTEND_DIST", REPO_ROOT / "frontend" / "dist")),
         environment=environment,

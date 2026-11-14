@@ -1,10 +1,9 @@
 # Signal Desk frontend
 
-Steps 1–3 provide the responsive workspace, real monthly time series, trend evidence,
-data passports and basic change inspection with the interactive Change seam. The
-variable catalogue, point analyses and method results come from the live API.
-Europe trend rasters, area selection, Time aperture and Counter-directions remain
-outside the current implementation.
+Steps 1–5 provide real Europe trend maps for seven NASA variables, point and area
+analyses, monthly time series, trend evidence, data passports, Change seam, Time
+aperture and Counter-directions. A three-question guide helps choose a variable,
+place and period. The frontend calculates no scientific tests. No 3D work is included.
 
 ## Run
 
@@ -84,3 +83,31 @@ Documented product boundaries use a different dotted marker with source links.
 Flagged observations stay in the record and statistics. Changes, outliers,
 unavailable tests and unassessed features remain independent. Basic inspection
 does not infer natural or human causes, spatial extent or event matches.
+
+## Change the question
+
+Time aperture brackets can be dragged, moved with keyboard sliders, or entered as
+exact months. A draft does not change the current result. Apply requests fresh
+statistics with a new client request ID. The overview retains only an actually
+received wider record; it never fills missing months. Load full product record
+requests the catalogue coverage again.
+
+The Europe raster has a fixed period and uses map-wide Benjamini–Hochberg FDR
+decisions supplied by the API. It stays fixed when a point/area period changes.
+Missing data, insufficient records and uncomputed tests have separate patterns.
+Hover or use arrows to inspect cells; Enter selects A or B. Find opposite signs
+selects the strongest available positive and negative cells passing FDR, or reports
+that no pair exists. Compare both point records fetches two real native-grid
+analyses independently. Larger aggregated map cells can differ from these point
+records; individual trend tests and map FDR are shown separately.
+
+Choose Area to draw a rectangle or enter west/south/east/north. Europe uses the
+prepared cube; elsewhere a supported NASA Harmony request can run in the background.
+Progress remains unknown unless the server reports it. Area size, selected cells,
+spatial averaging and coverage appear in the passport. A box with no cell centres
+has its own no-data explanation. Boxes crossing the antimeridian are unsupported.
+
+Concurrent comparison requests do not restore or erase the main pending job.
+Deduplicated area jobs can return the original creator's correlation ID; the
+frontend verifies scientific request identity and its active sequence. It does not
+reject a matching shared result solely because of a different correlation ID.
