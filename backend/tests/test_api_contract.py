@@ -44,8 +44,11 @@ def test_variables_catalog_has_explicit_capabilities(tmp_settings):
     assert r.status_code == 200
     variables = r.json()["variables"]
     assert [v["variable_id"] for v in variables] == [
-        "t2m", "precip", "soil_moisture", "evapotranspiration", "surface_runoff", "airs_surface_air_temp", "no2_tropo"]
-    for v in variables:
+        "t2m", "precip", "soil_moisture", "evapotranspiration", "surface_runoff", "airs_surface_air_temp", "no2_tropo",
+        "ndvi", "lst_day"]
+    slow = {v["variable_id"]: v for v in variables[7:]}
+    assert all(v["capabilities"] == {"point": "job", "area": "not_available", "map_europe": "not_available"} for v in slow.values())
+    for v in variables[:7]:
         assert isinstance(v["definition"], str) and len(v["definition"]) > 40
         assert v["limitations"] and all(isinstance(x, str) for x in v["limitations"])
         assert set(v["summary"]) == {"definition", "limitation"}
@@ -115,11 +118,11 @@ def test_unknown_resources_are_explicit_not_found(tmp_settings):
             assert r.json()["status"] == "not_found"
 
 
-def test_investigation_is_not_implemented(tmp_settings):
+def test_investigation_of_unknown_analysis_is_not_found(tmp_settings):
     with client_for(tmp_settings()) as client:
         r = client.post("/api/v1/investigations", json={"analysis_id": "a_1", "change_id": "c_1"})
-    assert r.status_code == 501
-    assert r.json()["status"] == "not_implemented"
+    assert r.status_code == 404
+    assert r.json()["status"] == "not_found" and r.json()["reason"] == "unknown_analysis"
 
 
 def test_maps_are_not_ready_until_precomputed(tmp_settings):

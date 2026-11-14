@@ -17,7 +17,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .analysis import AREA_JOB_KIND, area_job_handler
+from .analysis import AREA_JOB_KIND, MODIS_JOB_KIND, area_job_handler, modis_job_handler
+from .investigation import investigate
+from .jobs import JobFailed
 from .api.routes import SERVICE_VERSION, router
 from .config import Settings, get_settings
 from .jobs import JobRunner
@@ -52,6 +54,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return await area_job_handler(job, ctx, settings, store)
 
     runner.register(AREA_JOB_KIND, _area_handler)
+
+    async def _investigation_handler(job, ctx):
+        analysis = store.get_analysis(job["request"]["analysis_id"])
+        if analysis is None:
+            raise JobFailed({"code": "not_found", "message_public": "The analysis is no longer available. Run it again.",
+                             "retryable": False})
+        result = await investigate(settings, store, analysis, job["request"]["change_id"], on_stage=ctx.stage)
+        iid = result["investigation_id"]
+        return {"type": "investigation", "id": iid, "url": f"/api/v1/investigations/{iid}"}
+
+    runner.register("investigation", _investigation_handler)
+
+    async def _modis_handler(job, ctx):
+        return await modis_job_handler(job, ctx, settings, store)
+
+    runner.register(MODIS_JOB_KIND, _modis_handler)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

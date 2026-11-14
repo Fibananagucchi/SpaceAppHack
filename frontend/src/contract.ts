@@ -44,6 +44,8 @@ export interface ViewState {
   jobId?: string;
   analysisId?: string;
   stage?: string;
+  jobKind?: string;
+  estimateSeconds?: number;
   startedAt?: number;
   progress?: { done: number; total: number; unit: string };
   warnings: PublicWarning[];
@@ -130,6 +132,11 @@ export function readProgress(data: ObjectValue): ViewState['progress'] {
   return { done: p.done, total: p.total, unit: typeof p.unit === 'string' ? p.unit : '' };
 }
 
+export function readEstimate(data:ObjectValue):number|undefined {
+  const e=data.estimate_s;
+  return isObject(e)&&e.kind==='estimate'&&typeof e.value==='number'&&Number.isFinite(e.value)&&e.value>=0?e.value:undefined;
+}
+
 function containsUnavailableTest(value: unknown): boolean {
   if (!isObject(value)) return false;
   if (value.status === 'insufficient_for_test') return true;
@@ -157,7 +164,7 @@ export function analysisState(response: ApiResponse, request: AnalysisRequest): 
   if (response.httpStatus >= 400) return { ...base, kind: 'source_error', reason: 'service_unavailable' };
   if ((data.status === 'queued' || data.status === 'running') && typeof data.job_id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(data.job_id)) {
     return { ...base, kind: data.status, jobId: data.job_id, stage: typeof data.stage === 'string' ? data.stage : undefined,
-      progress: readProgress(data), startedAt: Date.now() };
+      jobKind:typeof data.kind==='string'?data.kind:undefined,estimateSeconds:readEstimate(data),progress: readProgress(data), startedAt: Date.now() };
   }
   if (typeof data.analysis_id === 'string' && isObject(data.series)) {
     if (data.series.status === 'no_data') return { ...base, kind: 'no_data',reason:typeof data.series.reason==='string'?data.series.reason:undefined };

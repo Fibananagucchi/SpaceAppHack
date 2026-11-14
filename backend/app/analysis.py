@@ -20,12 +20,15 @@ from .breaks import analyze_breaks
 from .config import Settings
 from .jobs import JobContext, JobFailed
 from .series import (AreaTooSmall, MonthlySeries, SourceError, area_from_cube, bbox_in_europe, cube_ready,
-                     fetch_harmony_area, get_point_series, harmony_area_cached, month_range)
+                     fetch_harmony_area, fetch_modis_point, get_point_series, harmony_area_cached,
+                     modis_cached, month_range)
 from .state import StateStore, new_id
 
 SERIES_ENDED_LAG_MONTHS = 6
 AREA_JOB_KIND = "area_series"
 AREA_JOB_ESTIMATE_S = 180
+MODIS_JOB_KIND = "modis_point"
+MODIS_JOB_ESTIMATE_S = 150
 
 
 def _months_between(a: str, b: str) -> int:
@@ -162,9 +165,22 @@ def build_result(store: StateStore, req: AnalysisRequest, request_id: str, serie
 # ---------------------------------------------------------------------------------------------
 # Point
 # ---------------------------------------------------------------------------------------------
-async def point_analysis(settings: Settings, store: StateStore, req: AnalysisRequest) -> tuple[int, dict[str, Any]]:
+async def point_analysis(settings: Settings, store: StateStore, req: AnalysisRequest, runner=None
+                         ) -> tuple[int, dict[str, Any]]:
     request_id = request_id_of(req)
     lat, lon = req.location.lat, req.location.lon
+    if catalog.is_slow(req.variable_id):
+        if not modis_cached(store, req.variable_id, lat, lon):
+            job_request = req.model_dump(mode="json")
+            science_key = {k: v for k, v in job_request.items() if k != "request_id"}
+            job = store.find_active_job(MODIS_JOB_KIND, science_key) or runner.submit(MODIS_JOB_KIND, job_request)
+            return 202, job_body(job, request_id)
+        try:
+            series = await fetch_modis_point(settings, store, req.variable_id, lat, lon)
+        except SourceError as err:
+            return source_error_body(req.model_dump(mode="json"), request_id, err)
+        resolved = {"type": "point", "requested": {"lat": lat, "lon": lon}, "grid_cell": series.grid_cell}
+        return 200, build_result(store, req, request_id, series, resolved)
     try:
         series = await get_point_series(settings, store, req.variable_id, lat, lon)
     except SourceError as err:
@@ -187,7 +203,8 @@ def job_body(job: dict[str, Any], request_id: str | None = None) -> dict[str, An
     body = dict(job)
     active = job["status"] in ("queued", "running")
     body["next_poll_s"] = 10 if active else None
-    body["estimate_s"] = {"value": AREA_JOB_ESTIMATE_S, "kind": "estimate"} if job["kind"] == AREA_JOB_KIND else None
+    estimates = {AREA_JOB_KIND: AREA_JOB_ESTIMATE_S, "investigation": 20, MODIS_JOB_KIND: MODIS_JOB_ESTIMATE_S}
+    body["estimate_s"] = {"value": estimates[job["kind"]], "kind": "estimate"} if job["kind"] in estimates else None
     if request_id is not None:
         body["request_id"] = request_id
     else:
@@ -198,6 +215,9 @@ def job_body(job: dict[str, Any], request_id: str | None = None) -> dict[str, An
 async def area_analysis(settings: Settings, store: StateStore, runner, req: AnalysisRequest
                         ) -> tuple[int, dict[str, Any]]:
     request_id = request_id_of(req)
+    if catalog.is_slow(req.variable_id):
+        return 501, {"status": "not_implemented", "reason": "area_not_available_for_this_variable",
+                     "request_id": request_id, "request": req.model_dump(mode="json")}
     bbox = tuple(req.location.bbox)
     if bbox_in_europe(bbox) and cube_ready(settings.data_dir, req.variable_id):
         try:
@@ -234,4 +254,19 @@ async def area_job_handler(job: dict[str, Any], ctx: JobContext, settings: Setti
         raise JobFailed(source_error_payload(err)) from err
     ctx.stage("computing")
     result = build_result(store, req, request_id_of(req), series, harmony_resolved(bbox, req.variable_id))
+    return {"type": "analysis", "id": result["analysis_id"], "url": f"/api/v1/analyses/{result['analysis_id']}"}
+
+
+async def modis_job_handler(job: dict[str, Any], ctx: JobContext, settings: Settings, store: StateStore
+                            ) -> dict[str, Any]:
+    req = AnalysisRequest.model_validate(job["request"])
+    lat, lon = req.location.lat, req.location.lon
+    ctx.stage("downloading")
+    try:
+        series = await fetch_modis_point(settings, store, req.variable_id, lat, lon, progress=ctx.progress)
+    except SourceError as err:
+        raise JobFailed(source_error_payload(err)) from err
+    ctx.stage("computing")
+    resolved = {"type": "point", "requested": {"lat": lat, "lon": lon}, "grid_cell": series.grid_cell}
+    result = build_result(store, req, request_id_of(req), series, resolved)
     return {"type": "analysis", "id": result["analysis_id"], "url": f"/api/v1/analyses/{result['analysis_id']}"}

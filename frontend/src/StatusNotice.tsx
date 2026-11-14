@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { number } from './format';
 import type { PublicWarning, StateKind, ViewState } from './contract';
 
 const copy: Record<StateKind, { label: string; title: string; description: string }> = {
@@ -46,7 +47,8 @@ export function WarningNotices({ warnings }: { warnings: PublicWarning[] }) {
   </>;
 }
 
-export function StatusNotice({ state, onRetry, onRefresh }: { state: ViewState; onRetry?: () => void; onRefresh?: () => void }) {
+export function StatusNotice({ state, onRetry, onRefresh, purpose='analysis' }: { state: ViewState; onRetry?: () => void; onRefresh?: () => void;purpose?:'analysis'|'investigation' }) {
+  const progressId=useId();
   const [elapsed, setElapsed] = useState(0);
   const busy = ['loading', 'connecting', 'queued', 'running'].includes(state.kind);
   useEffect(() => {
@@ -59,20 +61,21 @@ export function StatusNotice({ state, onRetry, onRefresh }: { state: ViewState; 
   const info = copy[state.kind];
   const unavailableService = state.kind === 'source_error' && state.reason === 'service_unavailable';
   const tooSmall=state.kind==='no_data'&&state.reason==='area_smaller_than_grid_cell';
-  const title = tooSmall?'This area contains no grid-cell centres.':unavailableService ? 'Could not reach the analysis service.' : info.title;
+  const title = purpose==='investigation'&&busy?'Checking the wider context…':tooSmall?'This area contains no grid-cell centres.':unavailableService ? 'Could not reach the analysis service.' : info.title;
   const retryable = ['source_error', 'not_found', 'protocol_error'].includes(state.kind);
   return <div className={`status-notice status-${state.kind}`} data-state={state.kind}>
     <div className="state-brackets" aria-hidden="true"><span>[</span><span>]</span></div>
     <p className="eyebrow">{info.label}</p>
     <h2>{title}</h2>
-    <p className="state-description">{tooSmall?'Enlarge the area or choose a point. No value has been substituted.':info.description}</p>
+    <p className="state-description">{purpose==='investigation'&&busy?'The trend result stays available while context is checked. No cause has been assigned.':tooSmall?'Enlarge the area or choose a point. No value has been substituted.':info.description}</p>
     {state.stage && stageCopy[state.stage] && busy && <p className="stage-label">{stageCopy[state.stage]}</p>}
     {busy && <div className="request-progress">
       {state.progress && state.kind !== 'connecting' ? <>
-        <label htmlFor="request-progress">{state.progress.done} of {state.progress.total}{state.progress.unit ? ` ${state.progress.unit}` : ''} completed</label>
-        <progress id="request-progress" max={state.progress.total} value={state.progress.done} />
+        <label htmlFor={progressId}>{number(state.progress.done)} of {number(state.progress.total)}{state.jobKind==='modis_point'&&state.progress.unit==='months'?' monthly files checked':`${state.progress.unit ? ` ${state.progress.unit}` : ''} completed`}</label>
+        <progress id={progressId} max={state.progress.total} value={state.progress.done} />
       </> : <p className="text-muted">Progress has not been reported.</p>}
       <span className="elapsed">Elapsed {Math.floor(elapsed / 60).toString().padStart(2, '0')}:{(elapsed % 60).toString().padStart(2, '0')}</span>
+      {state.estimateSeconds!==undefined&&<p className="field-help">Source estimate: about {number(state.estimateSeconds/60,1)} minutes. This is an estimate, not a countdown.</p>}
     </div>}
     {state.testUnavailable && state.kind !== 'insufficient_for_test' && <aside className="warning-notice"><p>Observations are available. One or more trend tests cannot be run on this series.</p></aside>}
     <WarningNotices warnings={state.warnings} />

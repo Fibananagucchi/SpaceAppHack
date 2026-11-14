@@ -9,7 +9,7 @@ export class ConnectionError extends Error {
 }
 
 /** Never expose raw upstream text or exception messages in the interface. */
-export async function apiRequest(path: string, options: { signal: AbortSignal; body?: AnalysisRequest; timeout?: number }): Promise<ApiResponse> {
+export async function apiRequest(path: string, options: { signal: AbortSignal; body?: AnalysisRequest | {analysis_id:string;change_id:string}; timeout?: number }): Promise<ApiResponse> {
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (options.signal.aborted) controller.abort();

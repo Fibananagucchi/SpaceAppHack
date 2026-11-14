@@ -366,3 +366,39 @@ thead th { position: sticky; top: 0; background: var(--surface); }
 @media(max-width:650px) { .central-workspace { order: 2; width: 100%; } .europe-map { padding-inline: 10px; } .counter-grid { grid-template-columns: 1fr; } .onboarding { padding: 18px; } }
 .scale-note { width: 100%; color: var(--muted); font: 11px Arial, sans-serif; }
 @container (max-width: 600px) { .raster-overlay circle { r: 28px; stroke-width: 4px; } .raster-overlay text { font-size: 32px; } }
+
+/* Interpretation follows the trend result; the service supplies every finding. */
+.analysis-view { container-type: inline-size; }
+.mode2-conclusion { border: 1px solid var(--rule); border-left: 3px solid var(--orange); padding: 23px; margin-top: 28px; background: var(--surface); }
+.mode2-conclusion h3 { font-size: clamp(23px,2vw,31px); line-height: 1.2; margin-block: 12px; letter-spacing: -.5px; }
+.mode2-conclusion > p:not(.eyebrow) { color: var(--muted); font-size: 14px; line-height: 1.65; max-width: 65ch; }
+.mode2-conclusion details, .change-features details, .eonet-observation details { margin-top: 16px; font-size: 13px; }
+.mode2-conclusion summary, .change-features summary, .eonet-observation summary { cursor: pointer; padding-block: 8px; }
+.mode2-conclusion details p, .eonet-observation details p { margin-top: 12px; color: var(--muted); }
+.reason-grid, .feature-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.reason-column { min-width: 0; font-size: 13px; }
+.reason-column h4 { font-size: 13px; margin-block: 16px 8px; }
+.reason-column ul, .context-references { padding-left: 18px; margin-block: 9px; }
+.reason-column li, .context-references li { margin-block: 8px; line-height: 1.65; overflow-wrap: anywhere; }
+.context-references { font-size: 12px; }
+.classification-method { border-top: 1px solid var(--rule); padding-top: 7px; }
+.change-features { margin-top: 24px; }
+.change-features > h4 { font-size: 16px; }
+.feature-grid { margin-top: 14px; }
+.feature-grid article { padding: 15px; border: 1px solid var(--rule); min-width: 0; }
+.feature-grid .eyebrow { font-size: 10px; }
+.feature-value { margin-top: 8px; font-size: 16px; overflow-wrap: anywhere; }
+.feature-grid details p { margin-block: 10px; color: var(--muted); }
+.feature-grid dl > div { border-top: 1px solid var(--rule); padding-block: 7px; }
+.feature-grid dd { margin: 4px 0 0; min-width: 0; max-width: 100%; font-family: Consolas,monospace; overflow-wrap: anywhere; }
+.feature-grid ul { padding-left: 14px; margin-block: 8px; }
+.feature-grid li { margin-block: 8px; }
+.eonet-observation { margin-top: 22px; padding-block: 18px; border-block: 1px dashed var(--rule); }
+.eonet-observation h4 { margin-block: 10px; font-size: 16px; }
+.eonet-observation ul { padding-left: 18px; }
+.eonet-observation li { margin-top: 12px; overflow-wrap: anywhere; }
+.context-request { border-top: 1px solid var(--rule); padding-top: 20px; margin-top: 24px; }
+.context-request h3 { font-size: 23px; margin-block: 12px; }
+.context-request > p { color: var(--muted); font-size: 14px; }
+.context-request .button { margin-top: 16px; }
+@container (max-width: 500px) { .reason-grid, .feature-grid { grid-template-columns: 1fr; } .mode2-conclusion { padding: 18px 14px; } }

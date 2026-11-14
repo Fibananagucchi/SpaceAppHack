@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiRequest, ConnectionError, isAbort } from './api';
-import { analysisState, isObject, readProgress } from './contract';
+import { analysisState, isObject, readEstimate, readProgress } from './contract';
 import type { AnalysisRequest, ApiResponse, ViewState } from './contract';
 
 const WATCH_KEY = 'earth-trends-pending-request-v1';
@@ -108,7 +108,7 @@ export function useAnalysis(persistent=true) {
           setState({ kind: 'source_error', request, warnings: [], reason: 'job_failed' });
         } else if (data.status === 'queued' || data.status === 'running') {
           setState({ kind: data.status, request, warnings: [], jobId, startedAt,
-            stage: typeof data.stage === 'string' ? data.stage : undefined, progress: readProgress(data) });
+            stage: typeof data.stage === 'string' ? data.stage : undefined,jobKind:typeof data.kind==='string'?data.kind:undefined,estimateSeconds:readEstimate(data),progress: readProgress(data) });
           schedulePoll(jobId, data.next_poll_s);
         } else {
           await accept(response);

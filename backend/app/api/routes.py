@@ -15,11 +15,12 @@ from fastapi.responses import JSONResponse
 
 from .. import catalog, sources, storage
 from ..analysis import area_analysis, job_body, point_analysis
+from ..investigation import precheck
 from .models import AnalysisRequest, InvestigationRequest
 
 API_VERSION = "v1"
-SERVICE_VERSION = "0.4.0"
-STEP = 3
+SERVICE_VERSION = "0.5.0"
+STEP = 4
 
 router = APIRouter(prefix="/api/v1")
 
@@ -71,7 +72,7 @@ async def create_analysis(body: AnalysisRequest, request: Request) -> JSONRespon
     if body.location.type == "area":
         status_code, content = await area_analysis(state.settings, state.store, state.runner, body)
     else:
-        status_code, content = await point_analysis(state.settings, state.store, body)
+        status_code, content = await point_analysis(state.settings, state.store, body, state.runner)
     return JSONResponse(status_code=status_code, content=content)
 
 
@@ -92,24 +93,32 @@ async def get_job(job_id: str, request: Request) -> JSONResponse:
 
 
 @router.post("/investigations")
-async def create_investigation(body: InvestigationRequest) -> JSONResponse:
-    return JSONResponse(status_code=501, content={
-        "status": "not_implemented",
-        "reason": "investigations_available_from_step_4",
-        "request": body.model_dump(mode="json"),
-    })
+async def create_investigation(body: InvestigationRequest, request: Request) -> JSONResponse:
+    state = request.app.state
+    analysis = state.store.get_analysis(body.analysis_id)
+    problem = precheck(analysis, body.change_id)
+    if problem is not None:
+        status_code, content = problem
+        content["request"] = body.model_dump(mode="json")
+        return JSONResponse(status_code=status_code, content=content)
+    job_request = body.model_dump(mode="json")
+    job = state.store.find_active_job("investigation", job_request) or state.runner.submit("investigation", job_request)
+    return JSONResponse(status_code=202, content=job_body(job))
 
 
 @router.get("/investigations/{investigation_id}")
-async def get_investigation(investigation_id: str) -> JSONResponse:
-    return _not_found("unknown_investigation")
+async def get_investigation(investigation_id: str, request: Request) -> JSONResponse:
+    stored = request.app.state.store.get_investigation(investigation_id)
+    if stored is None:
+        return _not_found("unknown_investigation")
+    return JSONResponse(content=stored)
 
 
 @router.get("/maps/europe")
 async def maps_index(request: Request) -> dict[str, Any]:
     settings = request.app.state.settings
     maps = []
-    for vid in catalog.VARIABLE_IDS:
+    for vid in catalog.CORE_VARIABLE_IDS:
         prepared = storage.read_map(settings.data_dir, settings.prepared_dir, vid)
         if prepared and prepared.get("status") == "ok":
             maps.append({"variable_id": vid, "status": "ok", "period": prepared.get("period"),

@@ -366,7 +366,7 @@ DEFINITIONS: dict[str, dict[str, Any]] = {
     "no2_tropo": {
         "definition": ("Nitrogen dioxide (NO2) in the lower atmosphere, measured from space by the OMI instrument "
                        "on NASA's Aura satellite. The unit is 10^15 molecules in a column of air above one square "
-                       "centimetre. NO2 is produced mainly by burning fuel."),
+                       "centimetre. Major sources include combustion, soil emissions and lightning."),
         "limitations": [
             "Cloudy days are removed, so many months have gaps; a month needs at least 10 valid days.",
             "An instrument problem (row anomaly) since June 2007 reduces coverage; changes near 2007-2008 may come "
@@ -396,3 +396,88 @@ SUMMARIES: dict[str, dict[str, str]] = {
     "no2_tropo": {"definition": "Nitrogen dioxide through the lower atmosphere above a grid cell.",
                   "limitation": "A column amount, not ground-level concentration; a monthly value needs enough valid days."},
 }
+
+
+# ---------------------------------------------------------------------------------------------
+# Slow variables (step 4): MODIS for any point as a background job with cache (team decision 13:13).
+# Not part of the Europe cube or the trend maps.
+# ---------------------------------------------------------------------------------------------
+SLOW_CAPABILITIES = {"point": "job", "area": "not_available", "map_europe": "not_available"}
+_SLOW_VARIABLES: list[dict[str, Any]] = [
+    {
+        "variable_id": "ndvi",
+        "label": "Vegetation greenness (NDVI)",
+        "unit": "NDVI (unitless)",
+        "trend_unit": "NDVI (unitless) per decade",
+        "source": {"mission_or_model": "MODIS on Terra (satellite)", "provider": "NASA LP DAAC",
+                   "product": "MOD13C2", "version": "061", "doi": "10.5067/MODIS/MOD13C2.061"},
+        "native_resolution": {"lat_deg": 0.05, "lon_deg": 0.05, "time": "monthly"},
+        "coverage": {"start": "2000-02", "end": "2026-10", "spatial": "global land", "surface": "land"},
+        "processing": {"unit_conversion": "stored value / 10000 (file attribute scale_factor 10000)", "aggregation": None},
+        "_internal": {"collection_concept_id": "C2565788914-LPCLOUD",
+                      "dataset_path": "/MOD_Grid_monthly_CMG_VI/Data_Fields/CMG_0_05_Deg_Monthly_NDVI",
+                      "fill_value": -3000, "valid_range": (-2000, 10000), "scale_divisor": 10000.0},
+    },
+    {
+        "variable_id": "lst_day",
+        "label": "Daytime land surface temperature (MODIS)",
+        "unit": "°C",
+        "trend_unit": "°C per decade",
+        "source": {"mission_or_model": "MODIS on Terra (satellite)", "provider": "NASA LP DAAC",
+                   "product": "MOD11C3", "version": "061", "doi": "10.5067/MODIS/MOD11C3.061"},
+        "native_resolution": {"lat_deg": 0.05, "lon_deg": 0.05, "time": "monthly"},
+        "coverage": {"start": "2000-02", "end": "2026-10", "spatial": "global land", "surface": "land"},
+        "processing": {"unit_conversion": "stored value x 0.02 K (file attribute scale_factor) - 273.15", "aggregation": None},
+        "_internal": {"collection_concept_id": "C2565788897-LPCLOUD",
+                      "dataset_path": "/MODIS_MONTHLY_0_05DEG_CMG_LST/Data_Fields/LST_Day_CMG",
+                      "fill_value": 0, "valid_range": (7500, 65535), "scale_multiplier": 0.02, "to_celsius": True},
+    },
+]
+DEFINITIONS["ndvi"] = {
+    "definition": ("A satellite index of how green and dense vegetation is, from 0 (no plants) up to about 1 (dense "
+                   "green plants); water and snow give values near or below 0. Monthly values from the MODIS "
+                   "instrument on NASA's Terra satellite."),
+    "limitations": ["One value covers a grid cell of 0.05° (roughly 5 km).",
+                    "Prepared on request for one place; the first request takes a few minutes.",
+                    "Clouds and snow can leave months without a valid value."],
+}
+DEFINITIONS["lst_day"] = {
+    "definition": ("Temperature of the land surface itself (soil, plants, roofs) during the satellite's daytime "
+                   "pass, as a monthly mean, from the MODIS instrument on NASA's Terra satellite. It is not air "
+                   "temperature."),
+    "limitations": ["Daytime overpass only, so it is not a 24-hour average.",
+                    "One value covers a grid cell of 0.05° (roughly 5 km).",
+                    "Prepared on request for one place; the first request takes a few minutes.",
+                    "Cloudy conditions can leave months without a valid value."],
+}
+SUMMARIES["ndvi"] = {"definition": "How green and dense vegetation is, seen from space.",
+                     "limitation": "A satellite index, not a count of plants; clouds can leave gaps."}
+SUMMARIES["lst_day"] = {"definition": "Daytime temperature of the land surface, seen from space.",
+                        "limitation": "Surface (skin) temperature, not air temperature; clouds leave gaps."}
+PRODUCT_BOUNDARIES["ndvi"] = []
+PRODUCT_BOUNDARIES["lst_day"] = []
+BOUNDARY_REVIEW["ndvi"] = {"checked_at": None, "references": [],
+                           "note": "Product documentation not yet reviewed for boundaries; none recorded."}
+BOUNDARY_REVIEW["lst_day"] = {"checked_at": None, "references": [],
+                              "note": "Product documentation not yet reviewed for boundaries; none recorded."}
+
+CORE_VARIABLE_IDS: tuple[str, ...] = tuple(v["variable_id"] for v in _VARIABLES)
+SLOW_VARIABLE_IDS: tuple[str, ...] = tuple(v["variable_id"] for v in _SLOW_VARIABLES)
+_VARIABLES_ALL = _VARIABLES + _SLOW_VARIABLES
+VARIABLE_IDS = CORE_VARIABLE_IDS + SLOW_VARIABLE_IDS
+
+
+def is_slow(variable_id: str) -> bool:
+    return variable_id in SLOW_VARIABLE_IDS
+
+
+def list_public_variables() -> list[dict[str, Any]]:  # noqa: F811 - extended catalog (core + slow)
+    return ([public_variable(v, CAPABILITIES) for v in _VARIABLES]
+            + [public_variable(v, SLOW_CAPABILITIES) for v in _SLOW_VARIABLES])
+
+
+def get_variable(variable_id: str) -> dict[str, Any] | None:  # noqa: F811
+    for v in _VARIABLES_ALL:
+        if v["variable_id"] == variable_id:
+            return v
+    return None

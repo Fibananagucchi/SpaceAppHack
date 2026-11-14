@@ -33,7 +33,6 @@ const changeCopy: Record<string,{title:string;body:string}>={
   not_distinct_from_trend:{title:'A gradual trend remains plausible.',body:'Pettitt responds to a possible division in this record, but the model comparison favours a gradual straight line. Do not interpret this date as a distinct abrupt event.'},
   inconclusive:{title:'Step or gradual trend?',body:'The test identifies a candidate division, but the model comparison does not clearly distinguish a step from a gradual trend.'},
 };
-const featureNames: Record<string,string>={abruptness:'Abruptness',persistence:'Persistence',spatial_extent:'Spatial extent',other_variables:'Other variables'};
 
 export function ChangePanel({data,selected,onSelect}: {data:ObjectValue;selected?:string;onSelect:(id:string)=>void}) {
   const breaks=record(data.breaks), cp=record(breaks.change_point), shift=record(cp.shift), comparison=record(cp.model_comparison), outliers=record(breaks.outliers);
@@ -42,7 +41,7 @@ export function ChangePanel({data,selected,onSelect}: {data:ObjectValue;selected
   const activeOutlier=outlierItems.find(p=>`outlier-${p.t}`===selected);
   const activeBoundary=boundaries.find(b=>`boundary-${text(b.boundary_id)}`===selected);
   const info=changeCopy[String(cp.status)];
-  const conditions=record(breaks.conditions), features=record(breaks.features);
+  const conditions=record(breaks.conditions);
   return <section id="changes" tabIndex={-1} className="change-panel" aria-label="Change-point inspection">
     <div className="change-heading"><p className="eyebrow">Change seam / basic change inspection</p><h3>Look beyond one slope.</h3><p>A possible division in a record is a prompt to inspect the evidence, not a cause label.</p></div>
     {breaks.status!=='ok'?<div className="warning-notice"><div><strong>{breaks.status==='insufficient_for_test'?'Change analysis unavailable for this series.':'Change analysis is not available yet.'}</strong><p>{breaks.status==='insufficient_for_test'?unavailable(breaks):'The service has not returned a change analysis. No seam, date or explanation has been substituted.'}</p></div></div>:<>
@@ -59,6 +58,6 @@ export function ChangePanel({data,selected,onSelect}: {data:ObjectValue;selected
     </>}
     <details className="outlier-list"><summary>Flagged observations / {outliers.status==='ok'?number(outlierItems.length):'unavailable'}</summary><p className="field-help">{outliers.status==='ok'?text(outliers.method):unavailable(outliers)}</p>{outliers.status==='ok'&&(outlierItems.length===0?<p>No observations were flagged by this method. That does not prove there are no unusual values.</p>:<ul>{outlierItems.map(p=><li key={String(p.t)}><button aria-pressed={selected===`outlier-${p.t}`} onClick={()=>onSelect(`outlier-${p.t}`)}>○ {month(p.t)} · anomaly {number(p.anomaly,6)} {text(record(data.series).unit)} · z {number(p.robust_z)}</button></li>)}</ul>)}</details>
     <details className="boundary-list"><summary>Documented product boundaries / {number(boundaries.length)}</summary>{boundaries.length===0?<p>No documented product boundary was returned for this period. This does not exclude an undocumented change.</p>:<ul>{boundaries.map(b=><li key={text(b.boundary_id)}><button aria-pressed={selected===`boundary-${text(b.boundary_id)}`} onClick={()=>onSelect(`boundary-${text(b.boundary_id)}`)}>│ {month(b.date)} · {text(b.title)}</button><a href={referenceUrl(b.reference)} target="_blank" rel="noreferrer">Documentation ↗</a></li>)}</ul>}{Array.isArray(breaks.near_product_boundary)&&breaks.near_product_boundary.length>0&&<p className="field-help">The service flags a product boundary near the candidate date. Temporal proximity does not establish a cause.</p>}</details>
-    <div className="unassessed-features"><h4>Cause and wider context</h4><dl>{Object.entries(featureNames).map(([key,label])=>{const feature=record(features[key]);return <div key={key}><dt>{label}</dt><dd>{feature.status==='ok'?text(feature.value):'Not assessed'}</dd></div>;})}</dl><p>Natural or human cause: undetermined. Spatial checks, event matching and other variables are not inferred from this single record.</p></div>
+    <p className="field-help">This section describes a statistical change. Use the separate wider-context check to inspect features, product changes and event observations.</p>
   </section>;
 }

@@ -202,7 +202,7 @@ def build_map(variable_id: str, data_dir: Path, workers: int) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--variables", default=",".join(catalog.VARIABLE_IDS))
+    parser.add_argument("--variables", default=",".join(catalog.CORE_VARIABLE_IDS))
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     args = parser.parse_args(argv)
     settings = load_settings()

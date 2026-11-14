@@ -111,3 +111,42 @@ Concurrent comparison requests do not restore or erase the main pending job.
 Deduplicated area jobs can return the original creator's correlation ID; the
 frontend verifies scientific request identity and its active sequence. It does not
 reject a matching shared result solely because of a different correlation ID.
+
+## Investigate a possible change
+
+After the trend and chart, Check wider context starts a separate investigation.
+The trend stays available while the service checks neighbouring cells, other
+variables and documented product boundaries. The conclusion displays the service's
+category, source documentation, supporting observations, counter-evidence,
+alternatives and ordered rules. Unassessed features stay labelled Not assessed.
+Missing or unreadable classification data never becomes Cause undetermined.
+
+NASA EONET appears as a separate catalogue observation, with search bounds, dates,
+event source links and coverage limits. An event match never selects a cause
+category. Natural-event and human-influence categories require independent,
+documented causal context; none is configured in the current backend. A documented
+product boundary can yield Possible data artifact; otherwise the service can
+return Cause undetermined. Neither category proves a cause.
+
+MODIS NDVI and daytime land surface temperature are point products in the same
+catalogue. The initial request runs in the background. Progress is shown only for
+the server's reported checked/total monthly files. A source time estimate is
+labelled as an estimate. Completed source records can be returned from the cache.
+These products have no Europe trend map, area average or wider-context
+investigation in this implementation. Their available series and basic change
+inspection are still displayed.
+
+For opt-in checks against a running local API:
+
+```powershell
+node tools/check-mode2-live.mjs http://127.0.0.1:8013
+$env:MODE2_LIVE_ORIGIN='http://127.0.0.1:8013'
+npm test -- tests/mode2-live.test.tsx
+Remove-Item Env:MODE2_LIVE_ORIGIN
+```
+
+The helper uses actual source responses and saves them only to ignored
+`data/runtime/codex-mode2-qa/`. Integration tests use those real analysis IDs on
+the same running instance. Ordinary tests use isolated synthetic protocol cases;
+neither set of test inputs is imported by the product build. Use `--skip-modis`
+on the helper when checking only context; it avoids a fresh full source download.

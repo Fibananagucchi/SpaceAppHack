@@ -491,3 +491,153 @@ async def fetch_harmony_area(settings: Settings, store: StateStore, variable_id:
                     "doi": variable["source"]["doi"], "retrieved_at": retrieved_at, "from_cache": from_cache},
         aggregation=aggregation,
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# MODIS for any point (step 4): background job with cache (team decision 13:13)
+# ---------------------------------------------------------------------------------------------
+MODIS_CACHE_TTL_S = 7 * 24 * 3600
+MODIS_CONCURRENCY = 8
+CMR_GRANULES_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
+
+
+def modis_pixel(lat: float, lon: float, res: float = 0.05) -> tuple[int, int, float, float]:
+    row = min(int((90.0 - lat) / res), int(180 / res) - 1)
+    col = min(int((lon + 180.0) / res), int(360 / res) - 1)
+    return row, col, round(90.0 - (row + 0.5) * res, 5), round(-180.0 + (col + 0.5) * res, 5)
+
+
+def modis_cache_key(variable_id: str, lat: float, lon: float) -> str:
+    row, col, _, _ = modis_pixel(lat, lon)
+    return f"modis|{variable_id}|{row}|{col}"
+
+
+def modis_cached(store: StateStore, variable_id: str, lat: float, lon: float) -> bool:
+    return store.get_cached_series(modis_cache_key(variable_id, lat, lon), max_age_s=MODIS_CACHE_TTL_S) is not None
+
+
+def _modis_value(variable_id: str, raw: float) -> float:
+    internal = catalog.get_variable(variable_id)["_internal"]
+    lo, hi = internal["valid_range"]
+    if not math.isfinite(raw) or raw == internal["fill_value"] or raw < lo or raw > hi:
+        return float("nan")
+    return raw / internal["scale_divisor"] if internal.get("scale_divisor") else raw * internal["scale_multiplier"]
+
+
+async def _list_granules(client: httpx.AsyncClient, collection: str) -> list[tuple[str, str]]:
+    import asyncio
+
+    out: list[tuple[str, str]] = []
+    search_after = None
+    while True:
+        headers = {"CMR-Search-After": search_after} if search_after else None
+        for attempt in range(6):
+            try:
+                r = await client.get(CMR_GRANULES_URL, headers=headers, timeout=60,
+                                     params={"collection_concept_id": collection, "page_size": 2000,
+                                             "sort_key": "start_date"})
+                if r.status_code == 200:
+                    break
+            except httpx.HTTPError:
+                pass
+            await asyncio.sleep(2 + 2 * attempt)
+        else:
+            raise SourceError("cmr", "unavailable")
+        entries = r.json()["feed"]["entry"]
+        for e in entries:
+            links = [link["href"] for link in e.get("links", []) if "opendap.earthdata.nasa.gov" in link.get("href", "")]
+            if links:
+                out.append((e["time_start"][:7], links[0]))
+        search_after = r.headers.get("CMR-Search-After")
+        if not entries or not search_after:
+            return out
+
+
+async def fetch_modis_point(settings: Settings, store: StateStore, variable_id: str, lat: float, lon: float,
+                            progress=None) -> MonthlySeries:
+    """Monthly MODIS CMG (0.05°) series for one pixel from NASA LP DAAC cloud OPeNDAP."""
+    import asyncio
+    import io
+    from urllib.parse import quote
+
+    import h5py
+
+    variable = catalog.get_variable(variable_id)
+    internal = variable["_internal"]
+    row, col, clat, clon = modis_pixel(lat, lon)
+    cache_key = modis_cache_key(variable_id, lat, lon)
+    cached = store.get_cached_series(cache_key, max_age_s=MODIS_CACHE_TTL_S)
+    if cached:
+        payload, retrieved_at = cached
+        from_cache = True
+    else:
+        if not settings.token_configured:
+            raise SourceError("lpdaac", "rejected")
+        headers = {"Authorization": f"Bearer {settings.earthdata_token}"}
+        constraint = quote(f"{internal['dataset_path']}[{row}][{col}]", safe="/;:")
+        dataset_key = internal["dataset_path"].lstrip("/")
+        async with httpx.AsyncClient(timeout=settings.upstream_timeout_s, follow_redirects=True) as client:
+            granules = await _list_granules(client, internal["collection_concept_id"])
+            if not granules:
+                raise SourceError("lpdaac", "unavailable")
+            semaphore = asyncio.Semaphore(MODIS_CONCURRENCY)
+            done = 0
+            rejected = False
+
+            async def one(month: str, url: str) -> tuple[str, float | None]:
+                nonlocal done, rejected
+                async with semaphore:
+                    value: float | None = None
+                    for attempt in range(3):
+                        try:
+                            r = await client.get(f"{url}.dap.nc4?dap4.ce={constraint}", headers=headers)
+                            if r.status_code in (401, 403):
+                                rejected = True
+                                break
+                            if r.status_code == 200:
+                                with h5py.File(io.BytesIO(r.content), "r") as f:
+                                    value = float(np.asarray(f[dataset_key][...]).ravel()[0])
+                                break
+                        except (httpx.HTTPError, OSError, KeyError):
+                            pass
+                        await asyncio.sleep(1 + attempt)
+                    done += 1
+                    if progress and (done % 10 == 0 or done == len(granules)):
+                        progress(done, len(granules), "months")
+                    return month, value
+
+            results = await asyncio.gather(*(one(m, u) for m, u in granules))
+            if rejected:
+                raise SourceError("lpdaac", "rejected")
+        payload = {"rows": [[m, v] for m, v in results]}
+        retrieved_at = utc_now()
+        failed = sum(1 for _, v in results if v is None)
+        if failed > len(results) * 0.5:
+            raise SourceError("lpdaac", "unavailable")
+        store.put_cached_series(cache_key, payload, source="lpdaac_opendap", product=variable["source"]["product"],
+                                retrieved_at=retrieved_at)
+        from_cache = False
+
+    rows = sorted((m, v) for m, v in payload["rows"])
+    months = month_range(rows[0][0], rows[-1][0])
+    by_month = dict(rows)
+    values = np.full(len(months), np.nan)
+    reasons: list[str | None] = []
+    for k, m in enumerate(months):
+        if m not in by_month:
+            reasons.append("no_granule")
+        elif by_month[m] is None:
+            reasons.append("download_failed")
+        else:
+            v = _modis_value(variable_id, float(by_month[m]))
+            values[k] = v
+            reasons.append(None if math.isfinite(v) else "fill_value")
+    if internal.get("to_celsius"):
+        values = values - 273.15
+    return MonthlySeries(
+        times=months, values=values, missing_reasons=reasons,
+        grid_cell={"center_lat": clat, "center_lon": clon, "lat_res": 0.05, "lon_res": 0.05},
+        provenance={"source_service": "lpdaac_opendap", "upstream": "NASA LP DAAC cloud OPeNDAP (MODIS CMG pixel)",
+                    "product": variable["source"]["product"], "version": variable["source"]["version"],
+                    "doi": variable["source"]["doi"], "retrieved_at": retrieved_at, "from_cache": from_cache},
+    )

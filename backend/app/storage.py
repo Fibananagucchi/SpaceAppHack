@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .catalog import VARIABLE_IDS
+from .catalog import CORE_VARIABLE_IDS
 
 EUROPE_BBOX = (-25.0, 34.0, 45.0, 72.0)  # west, south, east, north
 
@@ -66,7 +66,7 @@ def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
 
 def cube_status(data_dir: Path) -> dict[str, Any]:
     variables: dict[str, Any] = {}
-    for vid in VARIABLE_IDS:
+    for vid in CORE_VARIABLE_IDS:
         status = read_json(cube_dir(data_dir, vid) / "status.json")
         variables[vid] = status if status else {"status": "not_started"}
     states = {v["status"] for v in variables.values()}

@@ -11,6 +11,7 @@ import { TimeAperture } from './TimeAperture';
 import type { AnalysisRequest } from './contract';
 import type { SeriesPoint } from './analysis';
 import { ChangePanel, markersFrom } from './ChangePanel';
+import { InvestigationPanel } from './InvestigationPanel';
 
 export function chartLine(value: unknown, key: string, label: string): ChartLine[] {
   const line = record(value);
@@ -50,7 +51,7 @@ export function DataPassport({data,variable}: {data:ObjectValue;variable:Variabl
   const series = record(data.series), source = record(data.provenance), location = record(data.location_resolved), cell = record(location.grid_cell), coverage = record(series.coverage), climatology = record(series.climatology);
   const period = (value:unknown) => {const p=record(value);return `${month(p.start)} — ${month(p.end)}`;};
   const bounds=(value:unknown)=>Array.isArray(value)?value.map(v=>finite(v)?`${String(v)}°`:'Not available').join(' / '):'Not available';
-  const serviceNames: Record<string,string> = {europe_cube:'Prepared Europe cube (NASA GES DISC)',giovanni_time_series:'NASA Giovanni time series',harmony_area_average:'NASA Giovanni averaging via Harmony'};
+  const serviceNames: Record<string,string> = {europe_cube:'Prepared Europe cube (NASA GES DISC)',giovanni_time_series:'NASA Giovanni time series',harmony_area_average:'NASA Giovanni averaging via Harmony',lpdaac_opendap:'NASA LP DAAC cloud OPeNDAP (MODIS)'};
   return <details className="data-passport"><summary>Data passport <span>Source / coverage / processing</span></summary><dl className="passport-grid">
     <div><dt>Variable</dt><dd>{variable.label}</dd></div><div><dt>Mission / model</dt><dd>{variable.source.mission_or_model}</dd></div>
     <div><dt>Product / version</dt><dd>{text(source.product)} / {text(source.version)}</dd></div><div><dt>Source path</dt><dd>{serviceNames[String(source.source_service)] ?? 'Not available'}</dd></div>
@@ -97,6 +98,7 @@ export function AnalysisView({state,variable,overview,onPeriodApply}: {state:Vie
     <p className="field-help">{mode==='raw' ? 'Original monthly values. Seasonal patterns remain.' : `Each value minus the mean for its calendar month over ${month(record(series.climatology).base_period && record(record(series.climatology).base_period).start)} — ${month(record(record(series.climatology).base_period).end)}. The baseline changes with the analysis period.`}</p>
     {points ? <TimeSeries key={state.analysisId} points={points} mode={mode} unit={text(series.unit)} lines={lines} markers={markers} selectedMarker={selectedMarker} onSelectMarker={id=>inspectMarker(id,true)} /> : <p className="warning-notice" role="alert">The series could not be read. No chart values have been substituted.</p>}
     {points&&state.request&&onPeriodApply&&<TimeAperture points={overview??points} period={state.request.period} onApply={period=>onPeriodApply({...state.request!,period})} onFull={()=>onPeriodApply({...state.request!,period:{start:variable.coverage.start,end:variable.coverage.end}})} />}
+    <InvestigationPanel key={state.analysisId??String(data.analysis_id)} data={data} available={variable.capabilities.investigation!=='not_available'&&!(variable.capabilities.investigation===undefined&&variable.capabilities.point==='job')} onRunAgain={state.request&&onPeriodApply?()=>onPeriodApply(state.request!):undefined}/>
     {state.warnings.length>0&&<details className="data-notes"><summary>Data notes ({state.warnings.length})</summary><WarningNotices warnings={state.warnings} /></details>}
     <details id="change-disclosure" className="change-disclosure"><summary>Inspect possible changes and unusual values</summary><ChangePanel data={data} selected={selectedMarker} onSelect={id=>inspectMarker(id,false)} /></details>
     <DataPassport data={data} variable={variable} />

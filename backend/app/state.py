@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS series_cache (
     retrieved_at  TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS investigations (
+    investigation_id TEXT PRIMARY KEY,
+    analysis_id      TEXT NOT NULL,
+    change_id        TEXT NOT NULL,
+    result_json      TEXT NOT NULL,
+    created_at       TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS analyses (
     analysis_id   TEXT PRIMARY KEY,
     request_json  TEXT NOT NULL,
@@ -163,6 +171,17 @@ class StateStore:
             if {k: v for k, v in job["request"].items() if k != "request_id"} == science_request:
                 return job
         return None
+
+    def put_investigation(self, investigation_id: str, analysis_id: str, change_id: str, result: dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO investigations VALUES (?,?,?,?,?)",
+                         (investigation_id, analysis_id, change_id, json.dumps(result), utc_now()))
+
+    def get_investigation(self, investigation_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT result_json FROM investigations WHERE investigation_id = ?",
+                               (investigation_id,)).fetchone()
+        return json.loads(row["result_json"]) if row else None
 
     @staticmethod
     def _job_from_row(row: sqlite3.Row) -> dict[str, Any]:

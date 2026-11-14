@@ -49,7 +49,8 @@ describe('Change seam and independent evidence',()=>{
     render(<AnalysisView variable={variable} state={{kind:'ready',warnings:[],result:{...payload,breaks:{status:'insufficient_for_test',reason:'too_short'}}}} />);
     expect(screen.getByRole('group',{name:/Monthly time series/})).toBeTruthy();
     expect(screen.getByText('Change analysis unavailable for this series.')).toBeTruthy();
-    expect(screen.getAllByText('Not assessed')).toHaveLength(4);
+    expect(screen.getByRole('heading',{name:'No distinct abrupt change to investigate.'})).toBeTruthy();
+    expect(screen.queryByRole('button',{name:'Check wider context ↗'})).toBeNull();
   });
   it('shows no numeric axes for an entirely unavailable display',()=>{
     const {container}=render(<TimeSeries points={points.map(p=>({...p,anomaly:null}))} mode="monthly_anomalies" unit="test" />);
