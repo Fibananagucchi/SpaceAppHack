@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title desc">
+<title id="title">Field Atlas — time-series analysis sketch</title>
+<desc id="desc">Presentation-only design sketch. All trend colours, traces, results and dates of change are illustrative, not NASA observations. Coastline: Natural Earth.</desc>
+<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#173347" stroke-width="1" opacity=".52"/></pattern></defs>
+<rect x="0" y="0" width="1440" height="1040" rx="0" fill="#F3F0E7" stroke="none" opacity="1"/>
+<rect x="0" y="0" width="1440" height="32" rx="0" fill="#173347" stroke="none" opacity="1"/>
+<text x="40" y="22" fill="#F3F0E7" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.3">DESIGN STUDY / ILLUSTRATIVE DATA / NOT A LIVE ANALYSIS</text>
+<text x="1400" y="22" fill="#F3F0E7" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">A / FIELD ATLAS</text>
+<text x="40" y="73" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start" letter-spacing="1">EARTH SYSTEM / TRENDS</text>
+<text x="930" y="73" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Explore</text>
+<text x="1060" y="73" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start" letter-spacing="0">Time series</text>
+<line x1="1060" y1="86" x2="1142.5" y2="86" stroke="#A64725" stroke-width="3" stroke-dasharray=""/>
+<text x="1220" y="73" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Change points</text>
+<line x1="40" y1="102" x2="1400" y2="102" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<text x="48" y="143" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">EUROPE / SELECTED GRID CELL / 46.5° N 32.5° E</text>
+<text x="48" y="205" fill="#173347" font-family="Georgia, serif" font-size="48" font-weight="400" text-anchor="start" letter-spacing="0">A direction. And the evidence.</text>
+<text x="48" y="247" fill="#173347" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start" letter-spacing="0">Air temperature at 2 m · MERRA-2 · 2000–2025</text>
+<rect x="48" y="280" width="160" height="44" rx="0" fill="#F3F0E7" stroke="#173347" opacity="1"/>
+<text x="128.0" y="307.0" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="0">Observations</text>
+<rect x="218" y="280" width="228" height="44" rx="0" fill="#173347" stroke="#173347" opacity="1"/>
+<text x="332.0" y="307.0" fill="#F3F0E7" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="0">Monthly differences</text>
+<text x="480" y="307" fill="#52636D" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Monthly average based on 2000–2025.</text>
+<text x="48" y="360" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">ILLUSTRATIVE TRACE / NOT OBSERVATIONS</text>
+<line x1="94" y1="404.0" x2="958" y2="404.0" stroke="#C7CDC8" stroke-width="0.7" stroke-dasharray=""/>
+<line x1="94" y1="463.0" x2="958" y2="463.0" stroke="#C7CDC8" stroke-width="0.7" stroke-dasharray=""/>
+<line x1="94" y1="522.0" x2="958" y2="522.0" stroke="#C7CDC8" stroke-width="0.7" stroke-dasharray=""/>
+<line x1="94" y1="581.0" x2="958" y2="581.0" stroke="#C7CDC8" stroke-width="0.7" stroke-dasharray=""/>
+<line x1="94" y1="640.0" x2="958" y2="640.0" stroke="#C7CDC8" stroke-width="0.7" stroke-dasharray=""/>
+<text x="94" y="394" fill="#52636D" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Difference from monthly average (°C)</text>
+<text x="82" y="408" fill="#52636D" font-family="Consolas, monospace" font-size="11" font-weight="400" text-anchor="end" letter-spacing="0">+1.0</text>
+<text x="82" y="526.0" fill="#52636D" font-family="Consolas, monospace" font-size="11" font-weight="400" text-anchor="end" letter-spacing="0">0.0</text>
+<text x="82" y="644" fill="#52636D" font-family="Consolas, monospace" font-size="11" font-weight="400" text-anchor="end" letter-spacing="0">−1.0</text>
+<text x="94.0" y="668" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">2000</text>
+<text x="266.8" y="668" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">2005</text>
+<text x="439.6" y="668" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">2010</text>
+<text x="612.4" y="668" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">2015</text>
+<text x="785.2" y="668" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">2020</text>
+<text x="958.0" y="668" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">2025</text>
+<line x1="94" y1="640" x2="958" y2="640" stroke="#52636D" stroke-width="1" stroke-dasharray=""/>
+<line x1="94" y1="583.36" x2="958" y2="470.08000000000004" stroke="#A64725" stroke-width="2" stroke-dasharray=""/>
+<polyline points="94.0,592.8 104.8,615.5 115.6,599.3 126.4,562.8 137.2,553.1 148.0,577.2 158.8,592.3 169.6,570.6 180.4,541.0 191.2,546.6 202.0,580.4 212.8,595.0 223.6,572.0 234.4,548.4 245.2,560.3 256.0,589.2 266.8,588.7 277.6,554.1 288.4,529.6 299.2,544.2 310.0,569.2 320.8,562.2 331.6,530.3 342.4,520.2 353.2,548.2 364.0,575.6 374.8,565.0 385.6,534.9 396.4,531.0 407.2,558.1 418.0,572.4 428.8,547.2 439.6,512.7 450.4,512.7 461.2,540.3 472.0,549.2" fill="none" stroke="#246B99" stroke-width="2.4"/>
+<polyline points="536.8,526.3 547.6,507.4 558.4,525.1 569.2,549.6 580.0,538.7 590.8,501.6 601.6,485.8 612.4,507.9 623.2,529.9 634.0,516.2 644.8,486.4 655.6,486.4 666.4,519.0 677.2,539.2 688.0,519.6 698.8,490.3 709.6,493.6 720.4,520.9 731.2,525.9 742.0,494.1 752.8,465.1 763.6,475.2 774.4,504.2 785.2,506.2 796.0,477.7 806.8,462.6 817.6,486.3 828.4,516.9 839.2,511.5 850.0,479.1 860.8,466.4 871.6,488.5 882.4,506.8 893.2,486.9 904.0,450.9 914.8,445.5 925.6,473.6 936.4,490.7 947.2,471.0 958.0,445.4" fill="none" stroke="#246B99" stroke-width="2.4"/>
+<text x="491.44" y="690" fill="#52636D" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">Gap in observations — not filled</text>
+<text x="950" y="420" fill="#A64725" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">Trend guide (illustrative)</text>
+<line x1="1020" y1="352" x2="1020" y2="720" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<text x="1050" y="381" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">ILLUSTRATIVE RESULT</text>
+<text x="1050" y="433" fill="#173347" font-family="Georgia, serif" font-size="34" font-weight="400" text-anchor="start" letter-spacing="0">Increasing</text>
+<text x="1050" y="487" fill="#173347" font-family="Georgia, serif" font-size="58" font-weight="400" text-anchor="start" letter-spacing="0">+0.4</text>
+<text x="1210" y="484" fill="#173347" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">°C / decade</text>
+<text x="1050" y="530" fill="#173347" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start" letter-spacing="0">95% slope CI: +0.2 to +0.6</text>
+<line x1="1050" y1="544" x2="1285" y2="544" stroke="#A64725" stroke-width="2" stroke-dasharray=""/>
+<line x1="1050" y1="539" x2="1050" y2="549" stroke="#A64725" stroke-width="2" stroke-dasharray=""/>
+<line x1="1285" y1="539" x2="1285" y2="549" stroke="#A64725" stroke-width="2" stroke-dasharray=""/>
+<circle cx="1168" cy="544" r="4" fill="#A64725" stroke="none" stroke-width="1"/>
+<text x="1050" y="568" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Data support a trend under</text>
+<text x="1050" y="592" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">the stated test assumptions.</text>
+<text x="1050" y="616" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Statistical support does not</text>
+<text x="1050" y="640" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">identify its cause.</text>
+<text x="1050" y="695" fill="#173347" font-family="Consolas, monospace" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Mann–Kendall · p = 0.03</text>
+<text x="1050" y="716" fill="#52636D" font-family="Arial, sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">Autocorrelation adjustment: Hamed–Rao</text>
+<line x1="48" y1="746" x2="1392" y2="746" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="48" y="782" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">NEXT / QUESTION A SHARP CHANGE</text>
+<text x="48" y="821" fill="#173347" font-family="Georgia, serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Could a change point affect this trend?</text>
+<text x="48" y="855" fill="#52636D" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">A possible break and a gradual trend can coexist.</text>
+<text x="48" y="878" fill="#52636D" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Check the evidence before interpreting the cause.</text>
+<rect x="48" y="914" width="224" height="44" rx="0" fill="#173347" stroke="#173347" opacity="1"/>
+<text x="160.0" y="941.0" fill="#F3F0E7" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="0">Inspect change points →</text>
+<text x="890" y="785" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">EONET / SEPARATE CONTEXT</text>
+<text x="890" y="824" fill="#173347" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">Not checked in this view.</text>
+<text x="890" y="851" fill="#173347" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">No event record is not evidence</text>
+<text x="890" y="878" fill="#173347" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">of a human-caused change.</text>
+<line x1="40" y1="982" x2="1400" y2="982" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="1011" fill="#52636D" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Illustrative results only · actual tests, intervals, methods and source DOI appear in the product.</text>
+<text x="1400" y="1011" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">EN / NASA SPACE APPS 2026</text>
+</svg>

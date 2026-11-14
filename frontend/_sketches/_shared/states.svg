@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1110" viewBox="0 0 1440 1110" role="img" aria-labelledby="title desc">
+<title id="title">Shared state treatments — no fabricated observations</title>
+<desc id="desc">Presentation-only design sketch. All trend colours, traces, results and dates of change are illustrative, not NASA observations. Coastline: Natural Earth.</desc>
+<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#173347" stroke-width="1" opacity=".52"/></pattern></defs>
+<rect x="0" y="0" width="1440" height="1110" rx="0" fill="#F3F0E7" stroke="none" opacity="1"/>
+<rect x="0" y="0" width="1440" height="32" rx="0" fill="#173347" stroke="none" opacity="1"/>
+<text x="40" y="22" fill="#F3F0E7" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.3">DESIGN STUDY / ILLUSTRATIVE DATA / NOT A LIVE ANALYSIS</text>
+<text x="1400" y="22" fill="#F3F0E7" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">A / FIELD ATLAS</text>
+<text x="48" y="116" fill="#173347" font-family="Georgia, serif" font-size="40" font-weight="400" text-anchor="start" letter-spacing="0">Honest states are part of the instrument.</text>
+<text x="48" y="154" fill="#173347" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">Shared behaviour across all three directions. These are copy and composition studies.</text>
+<line x1="48" y1="216" x2="692" y2="216" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="48" y="245" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">01 / QUEUED</text>
+<text x="48" y="285" fill="#173347" font-family="Georgia, serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">Your area request is queued.</text>
+<text x="48" y="319" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Selected area and period stay visible.</text>
+<text x="48" y="343" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Waiting for the source to start.</text>
+<text x="48" y="393" fill="#52636D" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">No graph. No invented percentage.</text>
+<line x1="748" y1="216" x2="1392" y2="216" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="748" y="245" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">02 / RETRIEVING</text>
+<text x="748" y="285" fill="#173347" font-family="Georgia, serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">Retrieving observations…</text>
+<text x="748" y="319" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Area requests can take about 3 minutes, or longer.</text>
+<text x="748" y="343" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">MODIS histories can take much longer.</text>
+<text x="748" y="393" fill="#52636D" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">Show real stage and elapsed time; estimate ≠ deadline.</text>
+<line x1="48" y1="450" x2="692" y2="450" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="48" y="479" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">03 / NO DATA</text>
+<text x="48" y="519" fill="#173347" font-family="Georgia, serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">No observations here.</text>
+<text x="48" y="553" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">This variable has no observations for the selected</text>
+<text x="48" y="577" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">place and period. Try another place or variable.</text>
+<text x="48" y="627" fill="#52636D" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">A missing value is not zero.</text>
+<line x1="748" y1="450" x2="1392" y2="450" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="748" y="479" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">04 / SOURCE ERROR</text>
+<text x="748" y="519" fill="#173347" font-family="Georgia, serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">The source could not finish.</text>
+<text x="748" y="553" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Your selection is preserved. Retry this request.</text>
+<text x="748" y="577" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">A failure is not evidence of no observations.</text>
+<text x="748" y="627" fill="#52636D" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">Retry without changing the question.</text>
+<line x1="48" y1="684" x2="692" y2="684" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="48" y="713" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">05 / TEST UNAVAILABLE</text>
+<text x="48" y="753" fill="#173347" font-family="Georgia, serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">The series is available. The test is not.</text>
+<text x="48" y="787" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Show the actual observations, with gaps.</text>
+<text x="48" y="811" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Explain the specific failed suitability condition.</text>
+<text x="48" y="861" fill="#52636D" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">No p-value or slope is invented.</text>
+<line x1="748" y1="684" x2="1392" y2="684" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="748" y="713" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">06 / PRODUCT BOUNDARY</text>
+<text x="748" y="753" fill="#173347" font-family="Georgia, serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">Interpret this boundary with care.</text>
+<text x="748" y="787" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Mark the date on the available series.</text>
+<text x="748" y="811" fill="#173347" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">Name products/versions; do not silently stitch them.</text>
+<text x="748" y="861" fill="#52636D" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">A boundary is a warning, not a causal verdict.</text>
+<line x1="48" y1="934" x2="1392" y2="934" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<text x="48" y="967" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">CACHED OBSERVATIONS</text>
+<text x="48" y="1002" fill="#173347" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">Name the saved request and retrieval date. Never substitute a nearby place or another period.</text>
+<line x1="40" y1="1052" x2="1400" y2="1052" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="1081" fill="#52636D" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Additional independent states: EONET unavailable ≠ no record · no supported trend ≠ no change.</text>
+<text x="1400" y="1081" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">EN / NASA SPACE APPS 2026</text>
+</svg>

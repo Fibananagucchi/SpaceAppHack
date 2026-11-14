@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+<title id="title">Let the instrument speak precisely.</title>
+<desc id="desc">Presentation-only design sketch. All trend colours, traces, results and dates of change are illustrative, not NASA observations. Coastline: Natural Earth.</desc>
+<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#F3F1E7" stroke-width="1" opacity=".52"/></pattern></defs>
+<rect x="0" y="0" width="1440" height="900" rx="0" fill="#101E28" stroke="none" opacity="1"/>
+<rect x="0" y="0" width="1440" height="32" rx="0" fill="#F3F1E7" stroke="none" opacity="1"/>
+<text x="40" y="22" fill="#101E28" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.3">DESIGN STUDY / ILLUSTRATIVE DATA / NOT A LIVE ANALYSIS</text>
+<text x="1400" y="22" fill="#101E28" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">B / SIGNAL DESK</text>
+<text x="40" y="73" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start" letter-spacing="1">EARTH SYSTEM / TRENDS</text>
+<text x="930" y="73" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Explore</text>
+<text x="1060" y="73" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start" letter-spacing="0">Time series</text>
+<line x1="1060" y1="86" x2="1142.5" y2="86" stroke="#E8AF78" stroke-width="3" stroke-dasharray=""/>
+<text x="1220" y="73" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Change points</text>
+<line x1="40" y1="102" x2="1400" y2="102" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="145" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">REFINEMENT 05 / SIGNAL DESK / PROPOSAL FOR TEAM REVIEW</text>
+<text x="1400" y="145" fill="#AFBFC6" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="end" letter-spacing="0">+0.5–1 H</text>
+<text x="40" y="211" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="45" font-weight="700" text-anchor="start" letter-spacing="-1">Let the instrument speak precisely.</text>
+<text x="40" y="253" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" letter-spacing="0">Replace a generic dashboard slogan with the variable, the finding and the limit of that finding.</text>
+<line x1="40" y1="287" x2="1400" y2="287" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="326" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">ENTRY / MEASUREMENT</text>
+<line x1="40" y1="345" x2="452" y2="345" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="512" y="326" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">RESULT / RATE AND SUPPORT</text>
+<line x1="512" y1="345" x2="924" y2="345" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="984" y="326" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">NO DATA / KEEP THE QUESTION</text>
+<line x1="984" y1="345" x2="1396" y2="345" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="398" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">MERRA-2 / REANALYSIS</text>
+<text x="40" y="464" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="43" font-weight="700" text-anchor="start" letter-spacing="-1">AIR</text>
+<text x="40" y="515" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="43" font-weight="700" text-anchor="start" letter-spacing="-1">TEMPERATURE</text>
+<text x="40" y="578" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="27" font-weight="700" text-anchor="start" letter-spacing="0">AT 2 M</text>
+<text x="40" y="650" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start" letter-spacing="0">How has it changed here?</text>
+<text x="40" y="681" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start" letter-spacing="0">Choose a place. Set the years.</text>
+<text x="512" y="398" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">ILLUSTRATIVE ANALYSIS</text>
+<text x="512" y="464" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="41" font-weight="700" text-anchor="start" letter-spacing="0">Increasing.</text>
+<text x="512" y="525" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="65" font-weight="700" text-anchor="start" letter-spacing="0">+0.4</text>
+<text x="512" y="563" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">°C / decade</text>
+<text x="512" y="630" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start" letter-spacing="0">95% slope CI: +0.2 to +0.6</text>
+<text x="512" y="658" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start" letter-spacing="0">Support under the test assumptions.</text>
+<text x="512" y="686" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start" letter-spacing="0">A trend does not establish its cause.</text>
+<text x="984" y="398" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">NO VALUES RETURNED</text>
+<text x="984" y="464" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="33" font-weight="700" text-anchor="start" letter-spacing="0">No observations.</text>
+<text x="984" y="509" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="33" font-weight="700" text-anchor="start" letter-spacing="0">Your question</text>
+<text x="984" y="554" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="33" font-weight="700" text-anchor="start" letter-spacing="0">stays.</text>
+<text x="984" y="651" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start" letter-spacing="0">Try another place, period or variable.</text>
+<text x="984" y="679" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start" letter-spacing="0">A blank record is not a zero.</text>
+<text x="40" y="791" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">No new data or endpoint. The same vocabulary carries through entry, result, error and uncertainty.</text>
+<line x1="40" y1="842" x2="1400" y2="842" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="871" fill="#AFBFC6" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Long variable names wrap; the source/model distinction stays visible · no verdict stamp, score or confidence badge.</text>
+<text x="1400" y="871" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">EN / NASA SPACE APPS 2026</text>
+</svg>

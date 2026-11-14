@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="570" viewBox="0 0 1440 570" role="img" aria-labelledby="title desc">
+<title id="title">B / SIGNAL DESK — signature interaction storyboard</title>
+<desc id="desc">Presentation-only design sketch. All trend colours, traces, results and dates of change are illustrative, not NASA observations. Coastline: Natural Earth.</desc>
+<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#F3F1E7" stroke-width="1" opacity=".52"/></pattern></defs>
+<rect x="0" y="0" width="1440" height="570" rx="0" fill="#101E28" stroke="none" opacity="1"/>
+<rect x="0" y="0" width="1440" height="32" rx="0" fill="#F3F1E7" stroke="none" opacity="1"/>
+<text x="40" y="22" fill="#101E28" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.3">DESIGN STUDY / ILLUSTRATIVE DATA / NOT A LIVE ANALYSIS</text>
+<text x="1400" y="22" fill="#101E28" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">B / SIGNAL DESK</text>
+<text x="40" y="112" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="40" font-weight="700" text-anchor="start" letter-spacing="0">The time aperture.</text>
+<text x="40" y="167" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">01 / FRAME</text>
+<line x1="40" y1="187" x2="454" y2="187" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<line x1="66" y1="290" x2="428" y2="290" stroke="#3C535F" stroke-width="2" stroke-dasharray=""/>
+<line x1="66" y1="262" x2="66" y2="317" stroke="#E8AF78" stroke-width="4" stroke-dasharray=""/>
+<line x1="428" y1="262" x2="428" y2="317" stroke="#E8AF78" stroke-width="4" stroke-dasharray=""/>
+<text x="66" y="348" fill="#F3F1E7" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="middle" letter-spacing="0">START</text>
+<text x="428" y="348" fill="#F3F1E7" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="middle" letter-spacing="0">END</text>
+<text x="247" y="235" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">MAP PERIOD STAYS FIXED</text>
+<text x="40" y="446" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Choose start and end dates.</text>
+<text x="478" y="304" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">→</text>
+<text x="512" y="167" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">02 / REQUEST</text>
+<line x1="512" y1="187" x2="926" y2="187" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<line x1="538" y1="290" x2="900" y2="290" stroke="#3C535F" stroke-width="2" stroke-dasharray=""/>
+<line x1="610" y1="262" x2="610" y2="317" stroke="#E8AF78" stroke-width="4" stroke-dasharray=""/>
+<line x1="860" y1="262" x2="860" y2="317" stroke="#E8AF78" stroke-width="4" stroke-dasharray=""/>
+<text x="610" y="348" fill="#F3F1E7" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="middle" letter-spacing="0">START</text>
+<text x="860" y="348" fill="#F3F1E7" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="middle" letter-spacing="0">END</text>
+<text x="719" y="235" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">MAP PERIOD STAYS FIXED</text>
+<text x="719" y="390" fill="#F3F1E7" font-family="Consolas, monospace" font-size="14" font-weight="400" text-anchor="middle" letter-spacing="0">RETRIEVING · NO FAKE %</text>
+<text x="512" y="446" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Confirm the period; wait for the result.</text>
+<text x="950" y="304" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">→</text>
+<text x="984" y="167" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">03 / COMPARE</text>
+<line x1="984" y1="187" x2="1398" y2="187" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<line x1="1010" y1="290" x2="1372" y2="290" stroke="#3C535F" stroke-width="2" stroke-dasharray=""/>
+<line x1="1082" y1="262" x2="1082" y2="317" stroke="#E8AF78" stroke-width="4" stroke-dasharray=""/>
+<line x1="1332" y1="262" x2="1332" y2="317" stroke="#E8AF78" stroke-width="4" stroke-dasharray=""/>
+<text x="1082" y="348" fill="#F3F1E7" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="middle" letter-spacing="0">START</text>
+<text x="1332" y="348" fill="#F3F1E7" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="middle" letter-spacing="0">END</text>
+<text x="1191" y="235" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="middle" letter-spacing="0">MAP PERIOD STAYS FIXED</text>
+<text x="1191" y="390" fill="#F3F1E7" font-family="Consolas, monospace" font-size="14" font-weight="400" text-anchor="middle" letter-spacing="0">RESULT MATCHES THIS PERIOD</text>
+<text x="984" y="446" fill="#F3F1E7" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Read the returned evidence, not a preview.</text>
+<line x1="40" y1="512" x2="1400" y2="512" stroke="#3C535F" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="541" fill="#AFBFC6" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Storyboard only · keyboard alternatives and reduced-motion behaviour are specified in the design report.</text>
+<text x="1400" y="541" fill="#AFBFC6" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">EN / NASA SPACE APPS 2026</text>
+</svg>

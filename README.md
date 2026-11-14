@@ -1,3 +1,55 @@
 # NASA Space Apps Challenge 2026 — Be An Earth System Trend Detective!
 
 _Project description will be added once the team approves the concept._
+
+## Status
+
+Development step 0: backend skeleton. Every API endpoint answers with an explicit state (`not_implemented`, `not_ready`, `not_found`, …). The backend never shows invented, interpolated or placeholder data values.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `backend/app/` | FastAPI service: API contract v1.1 under `/api/v1`, built frontend under `/` |
+| `backend/pipelines/europe_cube.py` | Downloads real monthly grids for Europe from NASA GES DISC (cloud OPeNDAP) and assembles the data cube |
+| `backend/tests/` | Tests (pytest) |
+| `frontend/` | Web interface (built into `frontend/dist/`) |
+| `Dockerfile` | One container: frontend build stage + Python runtime |
+| `deploy/` | Google Cloud Run deployment guide and scripts |
+
+## Run locally (Python 3.12)
+
+1. Create `.env` from `.env.example` and put your NASA Earthdata token in it (`EARTHDATA_TOKEN=...`). `.env` is ignored by git.
+2. Install dependencies and start the service:
+   ```bash
+   python -m venv .venv
+   .venv/Scripts/python -m pip install -r backend/requirements-dev.txt     # Windows
+   # .venv/bin/python -m pip install -r backend/requirements-dev.txt       # macOS / Linux
+   .venv/Scripts/python -m uvicorn backend.app.main:app --reload
+   ```
+3. Open <http://127.0.0.1:8000/api/v1/health> (add `?deep=true` for live checks of NASA services) and <http://127.0.0.1:8000/api/docs> for the API schema.
+4. Run the tests: `.venv/Scripts/python -m pytest backend/tests -q`.
+
+## Run locally with Docker
+
+```bash
+docker build -t trend-detective .
+docker run --rm -p 8080:8080 --env-file .env trend-detective
+```
+Then open <http://127.0.0.1:8080/api/v1/health>.
+
+## Build the Europe data cube locally
+
+```bash
+.venv/Scripts/python -m backend.pipelines.europe_cube                    # MERRA-2 T2M, GPM IMERG, GLDAS, AIRS
+.venv/Scripts/python -m backend.pipelines.europe_cube --products omi_no2 # OMI NO2 (daily granules, slower)
+```
+Raw subsets go to `data/raw/` and assembled cubes to `data/runtime/cube/europe/`. Both are ignored by git. Downloads resume where they stopped.
+
+## Deploy
+
+See [`deploy/README.md`](deploy/README.md) (Google Cloud Run, Secret Manager, Cloud Storage).
+
+## Resources
+
+The full list of data sets, services and libraries will be added here before submission.

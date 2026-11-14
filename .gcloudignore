@@ -1,0 +1,15 @@
+# Files NOT uploaded by `gcloud run deploy --source .` (Cloud Build context).
+# Everything ignored by git is ignored here too:
+#!include:.gitignore
+.git
+.gitignore
+.gcloudignore
+.venv
+data/
+docs/
+discussion/
+tasks/
+reports/
+frontend/_sketches/
+frontend/node_modules/
+frontend/dist/

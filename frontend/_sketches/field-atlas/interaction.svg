@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="570" viewBox="0 0 1440 570" role="img" aria-labelledby="title desc">
+<title id="title">A / FIELD ATLAS — signature interaction storyboard</title>
+<desc id="desc">Presentation-only design sketch. All trend colours, traces, results and dates of change are illustrative, not NASA observations. Coastline: Natural Earth.</desc>
+<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#173347" stroke-width="1" opacity=".52"/></pattern></defs>
+<rect x="0" y="0" width="1440" height="570" rx="0" fill="#F3F0E7" stroke="none" opacity="1"/>
+<rect x="0" y="0" width="1440" height="32" rx="0" fill="#173347" stroke="none" opacity="1"/>
+<text x="40" y="22" fill="#F3F0E7" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.3">DESIGN STUDY / ILLUSTRATIVE DATA / NOT A LIVE ANALYSIS</text>
+<text x="1400" y="22" fill="#F3F0E7" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">A / FIELD ATLAS</text>
+<text x="40" y="112" fill="#173347" font-family="Georgia, serif" font-size="40" font-weight="400" text-anchor="start" letter-spacing="0">The coordinate thread.</text>
+<text x="40" y="167" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">01 / CHOOSE</text>
+<line x1="40" y1="187" x2="454" y2="187" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<rect x="72" y="217" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="112" y="217" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="152" y="217" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="192" y="217" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<rect x="232" y="217" width="38" height="30" rx="0" fill="#A64725" stroke="none" opacity="1"/>
+<rect x="272" y="217" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="312" y="217" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="72" y="249" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="112" y="249" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="152" y="249" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<rect x="192" y="249" width="38" height="30" rx="0" fill="#A64725" stroke="none" opacity="1"/>
+<rect x="232" y="249" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="272" y="249" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="312" y="249" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="72" y="281" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="112" y="281" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<rect x="152" y="281" width="38" height="30" rx="0" fill="#A64725" stroke="none" opacity="1"/>
+<rect x="192" y="281" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="232" y="281" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="272" y="281" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="312" y="281" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<circle cx="191" cy="263" r="12" fill="#F3F0E7" stroke="#173347" stroke-width="2"/>
+<text x="40" y="446" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Select a real point or area.</text>
+<text x="478" y="304" fill="#173347" font-family="Arial, sans-serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">→</text>
+<text x="512" y="167" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">02 / ANCHOR</text>
+<line x1="512" y1="187" x2="926" y2="187" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<rect x="544" y="217" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="584" y="217" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="624" y="217" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="664" y="217" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<rect x="704" y="217" width="38" height="30" rx="0" fill="#A64725" stroke="none" opacity="1"/>
+<rect x="744" y="217" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="784" y="217" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="544" y="249" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="584" y="249" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="624" y="249" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<rect x="664" y="249" width="38" height="30" rx="0" fill="#A64725" stroke="none" opacity="1"/>
+<rect x="704" y="249" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="744" y="249" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="784" y="249" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="544" y="281" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="584" y="281" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<rect x="624" y="281" width="38" height="30" rx="0" fill="#A64725" stroke="none" opacity="1"/>
+<rect x="664" y="281" width="38" height="30" rx="0" fill="#246B99" stroke="none" opacity="1"/>
+<rect x="704" y="281" width="38" height="30" rx="0" fill="#ABC4D2" stroke="none" opacity="1"/>
+<rect x="744" y="281" width="38" height="30" rx="0" fill="#E6DDD0" stroke="none" opacity="1"/>
+<rect x="784" y="281" width="38" height="30" rx="0" fill="#DCA78B" stroke="none" opacity="1"/>
+<circle cx="663" cy="263" r="12" fill="#F3F0E7" stroke="#173347" stroke-width="2"/>
+<line x1="663" y1="275" x2="663" y2="358" stroke="#173347" stroke-width="2" stroke-dasharray=""/>
+<line x1="530" y1="358" x2="908" y2="358" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<circle cx="663" cy="358" r="4" fill="#173347" stroke="none" stroke-width="1"/>
+<text x="530" y="390" fill="#173347" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">PLACE / PRODUCT / PERIOD</text>
+<text x="512" y="446" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Keep place, product and period attached.</text>
+<text x="950" y="304" fill="#173347" font-family="Arial, sans-serif" font-size="23" font-weight="400" text-anchor="start" letter-spacing="0">→</text>
+<text x="984" y="167" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">03 / READ</text>
+<line x1="984" y1="187" x2="1398" y2="187" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<text x="1002" y="226" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="start" letter-spacing="1.2">OBSERVATIONS</text>
+<polyline points="1002,310 1052,287 1092,302 1135,273 1182,285 1230,251 1278,261 1326,236" fill="none" stroke="#246B99" stroke-width="2"/>
+<circle cx="1135" cy="273" r="5" fill="#F3F0E7" stroke="#173347" stroke-width="2"/>
+<line x1="1135" y1="275" x2="1135" y2="358" stroke="#173347" stroke-width="2" stroke-dasharray=""/>
+<line x1="1002" y1="358" x2="1380" y2="358" stroke="#173347" stroke-width="1" stroke-dasharray=""/>
+<circle cx="1135" cy="358" r="4" fill="#173347" stroke="none" stroke-width="1"/>
+<text x="1002" y="390" fill="#173347" font-family="Consolas, monospace" font-size="13" font-weight="400" text-anchor="start" letter-spacing="0">PLACE / PRODUCT / PERIOD</text>
+<text x="984" y="446" fill="#173347" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Open the corresponding series.</text>
+<line x1="40" y1="512" x2="1400" y2="512" stroke="#C7CDC8" stroke-width="1" stroke-dasharray=""/>
+<text x="40" y="541" fill="#52636D" font-family="Arial, sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Storyboard only · keyboard alternatives and reduced-motion behaviour are specified in the design report.</text>
+<text x="1400" y="541" fill="#52636D" font-family="Consolas, monospace" font-size="12" font-weight="400" text-anchor="end" letter-spacing="0">EN / NASA SPACE APPS 2026</text>
+</svg>

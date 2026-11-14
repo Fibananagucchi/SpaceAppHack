@@ -5,6 +5,7 @@
 
 # --- Великі сирі дані ---
 data/raw/
+data/runtime/
 *.nc
 *.nc4
 *.hdf
