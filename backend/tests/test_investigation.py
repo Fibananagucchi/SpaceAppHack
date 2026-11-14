@@ -1,4 +1,4 @@
-"""Full mode 2 (investigation-1). Synthetic cubes and EONET answers exist only in these tests."""
+"""Full mode 2 (investigation-2). Synthetic cubes and EONET answers exist only in these tests; the known-events list is the real curated file."""
 
 import json
 import time
@@ -18,12 +18,12 @@ def times_from(start_year: int, n: int) -> list[str]:
     return [f"{start_year + i // 12:04d}-{i % 12 + 1:02d}" for i in range(n)]
 
 
-def write_cube(data_dir, variable_id, values, start_year=1990):
+def write_cube(data_dir, variable_id, values, start_year=1990, lats=None, lons=None):
     """values: array (3, 3, n) in SOURCE units."""
     folder = data_dir / "cube" / "europe" / variable_id
     folder.mkdir(parents=True)
     np.save(folder / "data.npy", values.astype("float32"))
-    meta = {"product": {"short_name": "TEST", "version": "1"}, "lat": LATS, "lon": LONS,
+    meta = {"product": {"short_name": "TEST", "version": "1"}, "lat": lats or LATS, "lon": lons or LONS,
             "times": times_from(start_year, values.shape[2]), "months_without_granule": [],
             "months_with_failed_downloads": [], "assembled_at": "2026-11-14T00:00:00Z"}
     (folder / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
@@ -47,11 +47,11 @@ def fake_eonet(events):
     return _search
 
 
-def run_investigation(settings, monkeypatch, events, variable="t2m"):
+def run_investigation(settings, monkeypatch, events, variable="t2m", lat=46.5, lon=33.125):
     monkeypatch.setattr(investigation, "eonet_search", fake_eonet(events))
     with TestClient(create_app(settings)) as client:
         a = client.post("/api/v1/analyses", json={"variable_id": variable,
-                                                  "location": {"type": "point", "lat": 46.5, "lon": 33.125}}).json()
+                                                  "location": {"type": "point", "lat": lat, "lon": lon}}).json()
         cp = a["breaks"]["change_point"]
         r = client.post("/api/v1/investigations", json={"analysis_id": a["analysis_id"], "change_id": cp["change_id"]})
         if r.status_code != 202:
@@ -132,19 +132,100 @@ def test_eonet_event_alone_never_chooses_a_cause(tmp_settings, monkeypatch):
     assert notes["R2"] and notes["R3"]  # explains why these rules cannot apply
 
 
-@pytest.mark.parametrize("kind,category,rule", [("natural", "consistent_with_natural_event", "R2"),
-                                                ("human", "consistent_with_human_influence", "R3")])
-def test_documented_context_rules(tmp_settings, monkeypatch, kind, category, rule):
-    """R2 / R3 machinery, exercised with a test-only documented context source."""
+# ---------------------------------------------------------------------------------------------
+# Curated known events (team decision 23:45)
+# ---------------------------------------------------------------------------------------------
+KAKHOVKA_LATS = [46.75, 47.0, 47.25]
+KAKHOVKA_LONS = [33.75, 34.0, 34.25]
+
+
+def test_known_human_event_gives_human_influence(tmp_settings, monkeypatch):
     settings = tmp_settings()
-    write_cube(settings.data_dir, "t2m", step_cube(where="all"))
-    monkeypatch.setattr(investigation, "independent_causal_context", lambda analysis: [
-        {"kind": kind, "text": "Test context statement.", "reference": {"title": "Test source", "url": "https://example.org"}}])
-    _, res = run_investigation(settings, monkeypatch, events=[])
+    # soil moisture from 2000-01; synthetic step in 2023-06 inside the Kakhovka box
+    write_cube(settings.data_dir, "soil_moisture", step_cube(n=320, at=282, where="all", base=30.0),
+               start_year=2000, lats=KAKHOVKA_LATS, lons=KAKHOVKA_LONS)
+    a, res = run_investigation(settings, monkeypatch, events=[], variable="soil_moisture", lat=47.0, lon=34.0)
+    assert "2023-06" <= a["breaks"]["change_point"]["date"] <= "2023-09"  # inside the event window
     c = res["conclusion"]
-    assert c["category"] == category and c["rule"] == rule
-    assert c["evidence_for"][0]["reference"]["url"] == "https://example.org"
-    assert c["statement"].startswith("This change is consistent with") and c["never_proof"] is True
+    assert c["category"] == "consistent_with_human_influence" and c["rule"] == "R3"
+    assert c["known_events"][0]["event_id"] == "kakhovka_dam_breach_2023"
+    assert c["known_events"][0]["sources"][0]["url"].startswith("https://")
+    assert c["evidence_for"][0]["code"] == "documented_context"
+    assert "Breach of the Kakhovka dam" in c["statement"] and c["never_proof"] is True
+    assert c["coinciding_explanations"] == []
+    assert res["known_events_checked"]["events_in_list"] == 10
+
+
+def test_known_natural_event_gives_natural_event(tmp_settings, monkeypatch):
+    settings = tmp_settings()
+    # soil moisture (GLDAS, no documented boundary near 2010) from 2000-01; synthetic step in 2010-07
+    # inside the 2010 Russian heat wave box. (For t2m, the MERRA-2 stream start 2011-01 would also apply.)
+    write_cube(settings.data_dir, "soil_moisture", step_cube(n=300, at=126, where="all", base=30.0), start_year=2000,
+               lats=[54.75, 55.0, 55.25], lons=[39.75, 40.0, 40.25])
+    a, res = run_investigation(settings, monkeypatch, events=[], variable="soil_moisture", lat=55.0, lon=40.0)
+    assert "2010-06" <= a["breaks"]["change_point"]["date"] <= "2010-11"  # inside the event window
+    c = res["conclusion"]
+    assert c["category"] == "consistent_with_natural_event" and c["rule"] == "R2"
+    assert [e["event_id"] for e in c["known_events"]] == ["russian_heatwave_2010"]
+
+
+def test_product_boundary_and_known_event_are_shown_side_by_side(tmp_settings, monkeypatch):
+    settings = tmp_settings()
+    # step in 1992-01: MERRA-2 stream 2 starts (documented boundary) AND the global Pinatubo window applies
+    write_cube(settings.data_dir, "t2m", step_cube(n=300, at=144, where="all", size=-2.0), start_year=1980)
+    a, res = run_investigation(settings, monkeypatch, events=[], variable="t2m")
+    assert a["breaks"]["change_point"]["date"] in ("1991-12", "1992-01", "1992-02")
+    c = res["conclusion"]
+    assert c["category"] == "possible_data_artifact"  # agreed priority for the category field ...
+    assert [x["rule"] for x in c["coinciding_explanations"]] == ["R1", "R2"]  # ... but both shown, no winner
+    assert "cannot tell which one explains it" in c["statement"]
+    assert all(x["rule"] not in ("R2", "R3") for x in c["alternatives"])
+    assert c["known_events"][0]["event_id"] == "pinatubo_eruption_1991"
+
+
+def test_event_variable_rule_must_match(tmp_settings, monkeypatch):
+    settings = tmp_settings()
+    # precipitation is not listed for the Kakhovka event -> no match
+    write_cube(settings.data_dir, "precip", step_cube(n=300, at=281, where="all", base=0.05, size=0.05),
+               start_year=2000, lats=KAKHOVKA_LATS, lons=KAKHOVKA_LONS)
+    a, res = run_investigation(settings, monkeypatch, events=[], variable="precip", lat=47.0, lon=34.0)
+    if a["breaks"]["change_point"]["status"] in ("detected", "inconclusive"):
+        c = res["conclusion"]
+        assert c["category"] == "cause_undetermined" and c["known_events"] == []
+        notes = {r["rule"]: r.get("note") for r in c["rules_checked"]}
+        assert notes["R2"] == notes["R3"] == "No event in the curated list of known events matches this change."
+
+
+def test_known_events_list_endpoint(tmp_settings):
+    with TestClient(create_app(tmp_settings())) as client:
+        body = client.get("/api/v1/known-events").json()
+    assert body["status"] == "ok" and len(body["events"]) == 10 and len(body["match_rules"]) == 4
+    for e in body["events"]:
+        assert e["type"] in ("natural", "human") and e["sources"]
+        assert all(src["url"].startswith("https://") for src in e["sources"])
+        assert e["match_window"]["start"] <= e["match_window"]["end"]
+        assert set(e["expected_direction"]) <= set(e["variables"])
+
+
+RUSSIA_LATS = [54.75, 55.0, 55.25]
+RUSSIA_LONS = [39.75, 40.0, 40.25]
+
+
+@pytest.mark.parametrize("size,matches", [(2.0, True), (-2.0, False)])
+def test_event_direction_must_match_when_the_source_states_it(tmp_settings, monkeypatch, size, matches):
+    settings = tmp_settings()
+    # AIRS air temperature (no documented product boundary); step in 2010-07 inside the 2010 heat wave box.
+    # The source states the air was warmer, so only a warming step matches.
+    write_cube(settings.data_dir, "airs_surface_air_temp", step_cube(n=300, at=126, where="all", size=size),
+               start_year=2000, lats=RUSSIA_LATS, lons=RUSSIA_LONS)
+    a, res = run_investigation(settings, monkeypatch, events=[], variable="airs_surface_air_temp", lat=55.0, lon=40.0)
+    assert a["breaks"]["change_point"]["date"] in ("2010-07", "2010-08")
+    c = res["conclusion"]
+    if matches:
+        assert c["rule"] == "R2" and c["known_events"][0]["event_id"] == "russian_heatwave_2010"
+        assert c["known_events"][0]["match"]["direction"] == "increase, as stated by the source"
+    else:
+        assert c["category"] == "cause_undetermined" and c["known_events"] == []
 
 
 def test_other_variables_feature(tmp_settings, monkeypatch):

@@ -1,0 +1,151 @@
+{
+  "list_version": "known-events-1",
+  "compiled_at": "2026-11-14",
+  "reviewed_by_team": false,
+  "note": "Curated list (team decision 14.11 23:45). Each event is described only as far as its sources describe it. The box is an approximate area for matching, drawn around the region the sources name; the match window adds a short tolerance for monthly data. expected_direction is given only where the source states the direction of the change for that variable; otherwise the direction is not checked. A match means 'consistent with', never 'caused by'.",
+  "events": [
+    {
+      "event_id": "kakhovka_dam_breach_2023",
+      "title": "Breach of the Kakhovka dam, Ukraine",
+      "type": "human",
+      "kind": "dam_breach",
+      "dates": {"start": "2023-06-06", "end": "2023-06-06", "as_described": "The dam was breached on 6 June 2023; the reservoir emptied and the canals fed by it dried up in the following weeks."},
+      "match_window": {"start": "2023-06", "end": "2023-09"},
+      "area": {"scope": "box", "bbox": [32.6, 46.4, 35.3, 47.9], "description": "Former Kakhovka reservoir on the Dnipro and the river downstream to Kherson (approximate box)."},
+      "variables": ["ndvi", "lst_day", "evapotranspiration", "soil_moisture", "surface_runoff"],
+      "expected_direction": {},
+      "sources": [
+        {"publisher": "NASA Earth Observatory", "title": "Canals in Ukraine are Drying Up", "url": "https://science.nasa.gov/earth/earth-observatory/canals-in-ukraine-are-drying-up-151622/"}
+      ]
+    },
+    {
+      "event_id": "pinatubo_eruption_1991",
+      "title": "Eruption of Mount Pinatubo, Philippines",
+      "type": "natural",
+      "kind": "volcanic_eruption",
+      "dates": {"start": "1991-06-15", "end": "1993-12-31", "as_described": "Cataclysmic eruption on 15 June 1991; the sulfur dioxide spread around the planet lowered global temperatures by about 0.5 °C for roughly 1991 to 1993."},
+      "match_window": {"start": "1991-06", "end": "1993-12"},
+      "area": {"scope": "global", "bbox": null, "description": "The cooling described by the source was global."},
+      "variables": ["t2m"],
+      "expected_direction": {"t2m": "decrease"},
+      "sources": [
+        {"publisher": "U.S. Geological Survey", "title": "The Cataclysmic 1991 Eruption of Mount Pinatubo, Philippines (Fact Sheet 113-97)", "url": "https://pubs.usgs.gov/fs/1997/fs113-97/"}
+      ]
+    },
+    {
+      "event_id": "covid19_lockdown_northern_italy_2020",
+      "title": "Drop in nitrogen dioxide during the COVID-19 lockdown, northern Italy",
+      "type": "human",
+      "kind": "emission_reduction",
+      "dates": {"start": "2020-01-01", "end": "2020-03-11", "as_described": "Satellite data from 1 January to 11 March 2020 show nitrogen dioxide over Italy falling, most clearly over the Po Valley, which ESA links to the lockdown."},
+      "match_window": {"start": "2020-02", "end": "2020-06"},
+      "area": {"scope": "box", "bbox": [7.0, 44.0, 13.0, 46.5], "description": "Po Valley, northern Italy (approximate box)."},
+      "variables": ["no2_tropo"],
+      "expected_direction": {"no2_tropo": "decrease"},
+      "sources": [
+        {"publisher": "European Space Agency", "title": "Coronavirus: nitrogen dioxide emissions drop over Italy", "url": "https://www.esa.int/ESA_Multimedia/Videos/2020/03/Coronavirus_nitrogen_dioxide_emissions_drop_over_Italy"}
+      ]
+    },
+    {
+      "event_id": "covid19_lockdown_china_2020",
+      "title": "Drop in nitrogen dioxide during the COVID-19 shutdown, China",
+      "type": "human",
+      "kind": "emission_reduction",
+      "dates": {"start": "2020-01-20", "end": "2020-05-31", "as_described": "NO2 over China was much lower on 10-25 February 2020 than on 1-20 January 2020; about three months later the levels had returned to near normal."},
+      "match_window": {"start": "2020-01", "end": "2020-06"},
+      "area": {"scope": "box", "bbox": [110.0, 27.0, 122.0, 41.0], "description": "Central and eastern China shown in the NASA images (approximate box)."},
+      "variables": ["no2_tropo"],
+      "expected_direction": {"no2_tropo": "decrease"},
+      "sources": [
+        {"publisher": "NASA Earth Observatory", "title": "Airborne Nitrogen Dioxide Plummets Over China", "url": "https://science.nasa.gov/earth/earth-observatory/airborne-nitrogen-dioxide-plummets-over-china-146362/"},
+        {"publisher": "NASA Earth Observatory", "title": "Nitrogen Dioxide Levels Rebound in China", "url": "https://science.nasa.gov/earth/earth-observatory/nitrogen-dioxide-levels-rebound-in-china-146741/"}
+      ]
+    },
+    {
+      "event_id": "covid19_lockdown_us_northeast_2020",
+      "title": "Drop in nitrogen dioxide during the COVID-19 lockdown, northeastern United States",
+      "type": "human",
+      "kind": "emission_reduction",
+      "dates": {"start": "2020-03-01", "end": "2020-03-31", "as_described": "OMI on NASA's Aura satellite measured March 2020 NO2 over the northeastern U.S. about 30 % below the March 2015-2019 average, the lowest March in the OMI record."},
+      "match_window": {"start": "2020-03", "end": "2020-06"},
+      "area": {"scope": "box", "bbox": [-80.0, 37.0, -69.0, 44.0], "description": "Northeastern U.S. from Washington, D.C. to Boston (approximate box)."},
+      "variables": ["no2_tropo"],
+      "expected_direction": {"no2_tropo": "decrease"},
+      "sources": [
+        {"publisher": "NASA Goddard Space Flight Center", "title": "NASA Satellite Data Show 30 Percent Drop in Air Pollution Over Northeast U.S.", "url": "https://www.nasa.gov/centers-and-facilities/goddard/nasa-satellite-data-show-30-percent-drop-in-air-pollution-over-northeast-u-s/"}
+      ]
+    },
+    {
+      "event_id": "european_heatwave_2003",
+      "title": "European heat wave of summer 2003",
+      "type": "natural",
+      "kind": "heatwave",
+      "dates": {"start": "2003-07-01", "end": "2003-08-31", "as_described": "MODIS daytime land surface temperatures in July 2003 were up to about 10 °C higher than in July 2001 over southern and eastern France; the heat wave was responsible for at least 3,000 deaths in France."},
+      "match_window": {"start": "2003-06", "end": "2003-11"},
+      "area": {"scope": "box", "bbox": [-5.0, 42.0, 8.5, 51.5], "description": "France, where the source shows the strongest heating (approximate box)."},
+      "variables": ["t2m", "airs_surface_air_temp", "lst_day", "soil_moisture", "evapotranspiration", "ndvi"],
+      "expected_direction": {"t2m": "increase", "airs_surface_air_temp": "increase", "lst_day": "increase"},
+      "sources": [
+        {"publisher": "NASA Earth Observatory", "title": "European Heat Wave", "url": "https://science.nasa.gov/earth/earth-observatory/european-heat-wave-3714/"}
+      ]
+    },
+    {
+      "event_id": "russian_heatwave_2010",
+      "title": "Russian heat wave of summer 2010",
+      "type": "natural",
+      "kind": "heatwave",
+      "dates": {"start": "2010-07-01", "end": "2010-08-31", "as_described": "MODIS land surface temperatures for 20-27 July 2010 were far above the 2000-2008 average over western Russia, while part of northern central Russia was below average."},
+      "match_window": {"start": "2010-06", "end": "2010-11"},
+      "area": {"scope": "box", "bbox": [30.0, 45.0, 60.0, 62.0], "description": "European Russia (approximate box)."},
+      "variables": ["t2m", "airs_surface_air_temp", "lst_day", "soil_moisture", "evapotranspiration", "ndvi", "precip"],
+      "expected_direction": {"t2m": "increase", "airs_surface_air_temp": "increase", "lst_day": "increase"},
+      "sources": [
+        {"publisher": "NASA Earth Observatory", "title": "Heatwave in Russia", "url": "https://science.nasa.gov/earth/earth-observatory/heatwave-in-russia-45069/"}
+      ]
+    },
+    {
+      "event_id": "europe_heat_and_drought_2018",
+      "title": "Heat and drought in northern and central Europe, 2018",
+      "type": "natural",
+      "kind": "drought",
+      "dates": {"start": "2018-04-01", "end": "2018-11-30", "as_described": "Summer 2018 was the warmest on record for Europe; northern and central Europe had a prolonged drought, with less than 80 % of normal precipitation in spring, summer and autumn in the most affected regions."},
+      "match_window": {"start": "2018-04", "end": "2019-02"},
+      "area": {"scope": "box", "bbox": [0.0, 47.0, 32.0, 71.0], "description": "Northern and central Europe (approximate box)."},
+      "variables": ["t2m", "airs_surface_air_temp", "lst_day", "soil_moisture", "evapotranspiration", "ndvi", "precip", "surface_runoff"],
+      "expected_direction": {"t2m": "increase", "airs_surface_air_temp": "increase", "lst_day": "increase", "precip": "decrease"},
+      "sources": [
+        {"publisher": "Copernicus Climate Change Service (C3S)", "title": "European State of the Climate 2018 launched", "url": "https://climate.copernicus.eu/european-state-climate-2018-launched"}
+      ]
+    },
+    {
+      "event_id": "europe_drought_2022",
+      "title": "Drought in Europe, summer 2022",
+      "type": "natural",
+      "kind": "drought",
+      "dates": {"start": "2022-05-01", "end": "2022-08-31", "as_described": "A wide and persistent lack of precipitation combined with heatwaves from May 2022; by early August 47 % of Europe was under drought warning and 17 % under alert, worsening in northern Italy, south-eastern France, Hungary and Romania."},
+      "match_window": {"start": "2022-05", "end": "2022-12"},
+      "area": {"scope": "box", "bbox": [-10.0, 36.0, 30.0, 55.0], "description": "Western, central and southern Europe (approximate box)."},
+      "variables": ["soil_moisture", "evapotranspiration", "ndvi", "precip", "surface_runoff", "lst_day", "t2m"],
+      "expected_direction": {"t2m": "increase", "lst_day": "increase", "precip": "decrease"},
+      "sources": [
+        {"publisher": "European Commission Joint Research Centre", "title": "Drought in Europe - August 2022 (GDO Analytical Report, JRC130493)", "url": "https://publications.jrc.ec.europa.eu/repository/handle/JRC130493"},
+        {"publisher": "European Commission Joint Research Centre", "title": "Summer drought keeps its grip on Europe", "url": "https://joint-research-centre.ec.europa.eu/jrc-news-and-updates/summer-drought-keeps-its-grip-europe-2022-08-22_en"}
+      ]
+    },
+    {
+      "event_id": "western_europe_floods_2021",
+      "title": "Floods in western Germany and Belgium, July 2021",
+      "type": "natural",
+      "kind": "flood",
+      "dates": {"start": "2021-07-14", "end": "2021-07-15", "as_described": "Record rainfall on 14 July 2021 (ERA5 daily mean of 92.6 mm over a region on the Belgium-Germany border) caused floods on 14-15 July; river discharge in parts of the Meuse and Rhine basins was the highest since 1991. Copernicus EMS mapped the flooding in western Germany (activation EMSR517)."},
+      "match_window": {"start": "2021-07", "end": "2021-10"},
+      "area": {"scope": "box", "bbox": [5.5, 49.5, 7.8, 51.0], "description": "Eifel region of western Germany and eastern Belgium (approximate box)."},
+      "variables": ["precip", "surface_runoff", "soil_moisture"],
+      "expected_direction": {"precip": "increase"},
+      "sources": [
+        {"publisher": "Copernicus Emergency Management Service", "title": "EMSR517: Flood in Western Germany (Rapid Mapping activation)", "url": "https://mapping.emergency.copernicus.eu/activations/EMSR517/"},
+        {"publisher": "Copernicus Climate Change Service (C3S)", "title": "European State of the Climate 2021: Flooding in July", "url": "https://climate.copernicus.eu/esotc/2021/flooding-july"}
+      ]
+    }
+  ]
+}

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from .. import catalog, sources, storage
 from ..analysis import area_analysis, job_body, point_analysis
 from ..investigation import precheck
+from ..known_events import public_list
 from .models import AnalysisRequest, InvestigationRequest
 
 API_VERSION = "v1"
@@ -112,6 +113,12 @@ async def get_investigation(investigation_id: str, request: Request) -> JSONResp
     if stored is None:
         return _not_found("unknown_investigation")
     return JSONResponse(content=stored)
+
+
+@router.get("/known-events")
+async def known_events_list() -> dict[str, Any]:
+    """The curated list of known events used for R2 / R3, with sources and matching rules (for review)."""
+    return public_list()
 
 
 @router.get("/maps/europe")

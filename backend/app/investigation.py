@@ -1,4 +1,4 @@
-"""Full mode 2 (step 4): investigation of one possible change ("investigation-1").
+"""Full mode 2 (step 4): investigation of one possible change ("investigation-2").
 
 Input: a stored analysis (point or area) and the change_id of its change point.
 Only features that are really computed are reported; everything else is ``not_assessed``.
@@ -15,9 +15,13 @@ EONET is reported as a separate observation (search frame, events found or none,
 
 Conclusion — four categories (team decision 14.11 22:57), chosen by transparent ordered rules:
   R1 Possible data artifact            — the change lies within 12 months of a documented product boundary.
-  R2 Consistent with a natural event   — an independent, documented source links the change to a natural event.
-  R3 Consistent with human influence   — an independent, documented source links the change to human activity.
-     (No such source is configured yet, so R2 / R3 do not apply; EONET is an observation, never an argument.)
+  R2 Consistent with a natural event   — the change matches a natural event in the curated list of known events
+                                         (variable, time window, place and, where the source states it,
+                                         direction; team decision 14.11 23:45).
+  R3 Consistent with human influence   — the same for a human-caused event in the curated list.
+     EONET is an observation only and never chooses the category.
+  If R1 and R2/R3 both apply, both explanations are shown side by side ("coinciding_explanations"); the
+  category field keeps R1 by the agreed priority, but neither explanation is presented as the winner.
   R4 Cause undetermined                — none of the above.
 The first rule that applies gives the category; every other rule that applies is listed as an alternative.
 Evidence for / against is listed explicitly. No probabilities, never "proven".
@@ -33,13 +37,13 @@ from typing import Any
 import httpx
 import numpy as np
 
-from . import catalog, stats
+from . import catalog, known_events, stats
 from .breaks import analyze_breaks
 from .config import Settings
 from .series import SourceError, area_from_cube, bbox_in_europe, cube_ready, from_cube, fetch_giovanni, month_range
 from .state import StateStore, new_id
 
-PROCESSING_VERSION = "investigation-1"
+PROCESSING_VERSION = "investigation-2"
 NEAR_MONTHS = 12
 PERSISTENCE_LAST_MONTHS = 24
 MIN_AFTER_FOR_PERSISTENCE = 36
@@ -63,15 +67,17 @@ RULES = [
      "text": "The change lies within 12 months of a documented change of the data product (version, calibration, "
              "input data or instrument)."},
     {"rule": "R2", "category": "consistent_with_natural_event",
-     "text": "An independent, documented source links this place and time to a natural event."},
+     "text": "The change matches a natural event in the curated list of known events: same variable, change month inside the event's window, location inside the event area and, where the source states it, the same direction of change. The event's sources are linked."},
     {"rule": "R3", "category": "consistent_with_human_influence",
-     "text": "An independent, documented source links this place and time to human activity."},
+     "text": "The change matches a human-caused event in the curated list of known events, by the same conditions. The event's sources are linked."},
     {"rule": "R4", "category": "cause_undetermined", "text": "None of the rules above applies."},
 ]
 HOW_CLASSIFIED = ("Rules are checked in order R1 to R4; the first rule that applies gives the category and every "
-                  "other rule that applies is shown as an alternative. 'Consistent with' means the evidence fits; "
-                  "it is not proof. NASA EONET events are shown separately as an observation and are not used to "
-                  "choose the category: an event close in place and time does not show that it caused the change.")
+                  "other rule that applies is shown as an alternative. If a documented product change (R1) and a "
+                  "known event (R2 or R3) both coincide with the change, both are shown side by side and neither is "
+                  "treated as the answer. 'Consistent with' means the evidence fits; it is not proof. Known events "
+                  "come from a short curated list with sources. NASA EONET events are shown separately as an "
+                  "observation and are not used to choose the category.")
 
 
 def _month_diff(a: str, b: str) -> int:
@@ -174,6 +180,8 @@ async def spatial_extent(settings: Settings, store: StateStore, analysis: dict[s
     if loc["type"] != "point":
         return {"status": "not_assessed", "reason": "area_analysis"}
     vid = analysis["request"]["variable_id"]
+    if catalog.is_slow(vid):
+        return {"status": "not_assessed", "reason": "not_available_for_this_variable"}
     cell = loc["grid_cell"]
     cp = analysis["breaks"]["change_point"]
     in_europe = analysis["provenance"]["source_service"] == "europe_cube"
@@ -286,7 +294,7 @@ def classify(analysis: dict[str, Any], features: dict[str, Any], eonet: dict[str
     brk = analysis["breaks"]
     cp = brk["change_point"]
     near_boundaries = brk.get("near_product_boundary", [])
-    context = independent_causal_context(analysis)  # none configured: R2 / R3 cannot apply
+    context = independent_causal_context(analysis)  # curated known events matching this change
 
     applies = {"R1": bool(near_boundaries),
                "R2": any(c["kind"] == "natural" for c in context),
@@ -332,9 +340,18 @@ def classify(analysis: dict[str, Any], features: dict[str, Any], eonet: dict[str
                              "text": "No documented, independent source about the cause of this change is available "
                                      "to the tool."})
 
+    # A documented product change and a known event can coincide: show both side by side, no winner.
+    tie = applies["R1"] and (applies["R2"] or applies["R3"])
+    coinciding = []
+    if tie:
+        for r in order:
+            if applies[r]:
+                cat = next(x["category"] for x in RULES if x["rule"] == r)
+                coinciding.append({"category": cat, "label": CATEGORY_LABELS[cat], "rule": r, "evidence": evidence[r]})
+
     alternatives = []
     for r in order:
-        if applies[r] and r != chosen:
+        if applies[r] and r != chosen and not tie:
             cat = next(x["category"] for x in RULES if x["rule"] == r)
             alternatives.append({"category": cat, "label": CATEGORY_LABELS[cat], "rule": r, "evidence": evidence[r]})
     if chosen != "R4":
@@ -353,24 +370,31 @@ def classify(analysis: dict[str, Any], features: dict[str, Any], eonet: dict[str
                                                          "url": "https://acdisc.gesdisc.eosdis.nasa.gov/data/"
                                                                 "Aura_OMI_Level3/OMNO2d.003/doc/README.OMNO2.pdf"}}]})
 
+    event_titles = ", ".join(c["event"]["title"] for c in context)
     statements = {
         "possible_data_artifact": "This change may be related to a change in the data product, not to an event on the ground.",
-        "consistent_with_natural_event": "This change is consistent with a documented natural event.",
-        "consistent_with_human_influence": "This change is consistent with documented human influence.",
+        "consistent_with_natural_event": f"This change is consistent with a known natural event: {event_titles}.",
+        "consistent_with_human_influence": f"This change is consistent with a known human-caused event: {event_titles}.",
         "cause_undetermined": "These data do not point to a specific cause for this change.",
     }
+    statement = statements[category]
+    if tie:
+        statement = (f"This change coincides both with a documented change in the data product and with a known event "
+                     f"({event_titles}); these data cannot tell which one explains it.")
     rules_checked = []
     for x in RULES:
         item = {"rule": x["rule"], "category": x["category"], "text": x["text"],
                 "applies": applies.get(x["rule"], chosen == "R4")}
         if x["rule"] in ("R2", "R3") and not context:
-            item["note"] = "No independent, documented source about causes is configured, so this rule cannot apply."
+            item["note"] = "No event in the curated list of known events matches this change."
         rules_checked.append(item)
     return {
         "category": category,
         "label": CATEGORY_LABELS[category],
-        "statement": statements[category],
+        "statement": statement,
         "rule": chosen,
+        "coinciding_explanations": coinciding,
+        "known_events": [c["event"] for c in context],
         "evidence_for": evidence_for,
         "evidence_against": evidence_against,
         "alternatives": alternatives,
@@ -381,12 +405,21 @@ def classify(analysis: dict[str, Any], features: dict[str, Any], eonet: dict[str
 
 
 def independent_causal_context(analysis: dict[str, Any]) -> list[dict[str, Any]]:
-    """Documented, referenced statements about causes for this place and time.
+    """Documented, referenced context: events from the curated list matching this change (team decision 23:45).
 
-    No such source is configured (OPEN_QUESTIONS 31). EONET deliberately does NOT feed this function:
-    an event close in space and time is an observation, not evidence of cause (tasks 012/013).
+    EONET deliberately does NOT feed this function: an event close in space and time from a general catalogue is
+    an observation, not evidence (tasks 012/013).
     """
-    return []
+    cp = analysis["breaks"]["change_point"]
+    out = []
+    shift = (cp.get("shift") or {}).get("estimate")
+    for m in known_events.match(analysis["request"]["variable_id"], cp["date"], analysis["location_resolved"], shift):
+        sources = "; ".join(src["publisher"] for src in m["sources"])
+        out.append({"kind": m["type"],
+                    "text": f"Known event: {m['title']} ({m['dates']['as_described']}) Sources: {sources}.",
+                    "reference": {"title": m["sources"][0]["title"], "url": m["sources"][0]["url"]},
+                    "event": m})
+    return out
 
 
 # ---------------------------------------------------------------------------------------------
@@ -432,6 +465,9 @@ async def investigate(settings: Settings, store: StateStore, analysis: dict[str,
         "product_boundaries": {"status": "ok", "near_change": analysis["breaks"].get("near_product_boundary", [])},
         "eonet": eo,
         "conclusion": classify(analysis, features, eo),
+        "known_events_checked": {"list_version": known_events.load_events()["list_version"],
+                                 "events_in_list": len(known_events.load_events()["events"]),
+                                 "match_rules": known_events.MATCH_RULES},
         "processing_version": PROCESSING_VERSION,
     }
     store.put_investigation(investigation_id, analysis["analysis_id"], change_id, result)
