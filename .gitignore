@@ -1,0 +1,61 @@
+# --- Секрети ---
+.env
+.env.*
+!.env.example
+
+# --- Великі сирі дані ---
+data/raw/
+*.nc
+*.nc4
+*.hdf
+*.h5
+*.he5
+
+# --- Робота з агентами (службове, не частина продукту) ---
+AGENTS.md
+CLAUDE.md
+tasks/
+discussion/
+reports/
+docs/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / фронтенд ---
+node_modules/
+dist/
+build/
+.next/
+.vite/
+
+# --- Налаштування агентів та IDE ---
+.claude/
+.codex/
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*~
+
+# --- Логи й тимчасові файли ---
+*.log
+*.tmp
+*.bak
+.cache/
+tmp/
+
+# --- ОС ---
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
