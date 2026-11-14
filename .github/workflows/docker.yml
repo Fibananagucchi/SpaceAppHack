@@ -24,4 +24,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/mariia008/spaceapphack:latest
+          tags: |
+            ghcr.io/mariia008/spaceapphack:latest
+            ghcr.io/mariia008/spaceapphack:${{ github.sha }}
