@@ -158,7 +158,7 @@ gcloud run jobs create $JOB --image $IMAGE --region $REGION --service-account $S
   --add-volume "name=data,type=cloud-storage,bucket=$BUCKET,mount-options=implicit-dirs;uid=10001;gid=10001" `
   --add-volume-mount "volume=data,mount-path=/mnt/data" `
   --set-env-vars "DATA_DIR=/mnt/data,RAW_DIR=/mnt/data/raw" `
-  --command "python" --args "-m,backend.pipelines.europe_cube,--products,all,--concurrency,6" `
+  --command "python" --args "-m,backend.pipelines.europe_cube,--products,all,--concurrency,6,--with-maps" `
   --cpu 2 --memory 4Gi --task-timeout 6h --max-retries 1
 gcloud run jobs execute $JOB --region $REGION
 ```

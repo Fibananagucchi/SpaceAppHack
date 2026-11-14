@@ -1,7 +1,7 @@
 /** Synthetic contract fixtures for tests only. Never imported by src or included in dist. */
-import type { AnalysisRequest, Variable } from '../src/contract';
+import type { PointAnalysisRequest, Variable } from '../src/contract';
 
-export const request: AnalysisRequest = {
+export const request: PointAnalysisRequest = {
   variable_id: 'test_variable', location: { type: 'point', lat: 0, lon: 0 },
   period: { start: '2000-01', end: '2020-12' },
 };

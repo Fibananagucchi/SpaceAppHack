@@ -10,6 +10,7 @@ Layout (same locally and on the Cloud Storage bucket mounted on Cloud Run):
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import tempfile
@@ -27,6 +28,24 @@ def cube_dir(data_dir: Path, variable_id: str) -> Path:
 
 def map_path(data_dir: Path, variable_id: str) -> Path:
     return Path(data_dir) / "maps" / "europe" / f"{variable_id}.json"
+
+
+def read_map(data_dir: Path, prepared_dir: Path | None, variable_id: str) -> dict[str, Any] | None:
+    """Map from DATA_DIR (fresh, written by the pipeline) or, if absent, the prepared copy shipped in the image."""
+    fresh = read_json(map_path(data_dir, variable_id))
+    if fresh and fresh.get("status") == "ok":
+        return fresh
+    if prepared_dir is not None:
+        packed = Path(prepared_dir) / "maps" / "europe" / f"{variable_id}.json.gz"
+        try:
+            with gzip.open(packed, "rt", encoding="utf-8") as f:
+                prepared = json.load(f)
+            if prepared.get("status") == "ok":
+                prepared.setdefault("provenance", {})["served_from"] = "prepared_copy_in_image"
+                return prepared
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            return None
+    return None
 
 
 def read_json(path: Path) -> dict[str, Any] | None:

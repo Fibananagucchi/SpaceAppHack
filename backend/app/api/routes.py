@@ -1,4 +1,4 @@
-"""Contract v1.1 endpoints — step 1 (mode 1 minimum for points).
+"""Contract v1.1 endpoints — step 2 (mode 1 minimum + basic mode 2 for points).
 
 Every endpoint answers with real data or an explicit state. Point analyses use real
 series (Europe cube or Giovanni); areas answer ``not_implemented`` until step 3,
@@ -14,12 +14,12 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from .. import catalog, sources, storage
-from ..analysis import point_analysis
+from ..analysis import area_analysis, job_body, point_analysis
 from .models import AnalysisRequest, InvestigationRequest
 
 API_VERSION = "v1"
-SERVICE_VERSION = "0.2.0"
-STEP = 1
+SERVICE_VERSION = "0.4.0"
+STEP = 3
 
 router = APIRouter(prefix="/api/v1")
 
@@ -67,13 +67,11 @@ async def variables() -> dict[str, Any]:
 
 @router.post("/analyses")
 async def create_analysis(body: AnalysisRequest, request: Request) -> JSONResponse:
+    state = request.app.state
     if body.location.type == "area":
-        return JSONResponse(status_code=501, content={
-            "status": "not_implemented",
-            "reason": "area_available_from_step_3",
-            "request": body.model_dump(mode="json"),
-        })
-    status_code, content = await point_analysis(request.app.state.settings, request.app.state.store, body)
+        status_code, content = await area_analysis(state.settings, state.store, state.runner, body)
+    else:
+        status_code, content = await point_analysis(state.settings, state.store, body)
     return JSONResponse(status_code=status_code, content=content)
 
 
@@ -90,8 +88,7 @@ async def get_job(job_id: str, request: Request) -> JSONResponse:
     job = request.app.state.store.get_job(job_id)
     if job is None:
         return _not_found("unknown_job")
-    job["next_poll_s"] = 10 if job["status"] in ("queued", "running") else None
-    return JSONResponse(content=job)
+    return JSONResponse(content=job_body(job))
 
 
 @router.post("/investigations")
@@ -110,10 +107,10 @@ async def get_investigation(investigation_id: str) -> JSONResponse:
 
 @router.get("/maps/europe")
 async def maps_index(request: Request) -> dict[str, Any]:
-    data_dir = request.app.state.settings.data_dir
+    settings = request.app.state.settings
     maps = []
     for vid in catalog.VARIABLE_IDS:
-        prepared = storage.read_json(storage.map_path(data_dir, vid))
+        prepared = storage.read_map(settings.data_dir, settings.prepared_dir, vid)
         if prepared and prepared.get("status") == "ok":
             maps.append({"variable_id": vid, "status": "ok", "period": prepared.get("period"),
                          "computed_at": prepared.get("computed_at")})
@@ -126,7 +123,8 @@ async def maps_index(request: Request) -> dict[str, Any]:
 async def map_europe(variable_id: str, request: Request) -> JSONResponse:
     if catalog.get_variable(variable_id) is None:
         return _not_found("unknown_variable")
-    prepared = storage.read_json(storage.map_path(request.app.state.settings.data_dir, variable_id))
+    settings = request.app.state.settings
+    prepared = storage.read_map(settings.data_dir, settings.prepared_dir, variable_id)
     if prepared and prepared.get("status") == "ok":
         return JSONResponse(content=prepared)
     return JSONResponse(content={"status": "not_ready", "variable_id": variable_id, "reason": "not_computed"})

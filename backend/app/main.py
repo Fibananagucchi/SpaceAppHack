@@ -17,6 +17,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .analysis import AREA_JOB_KIND, area_job_handler
 from .api.routes import SERVICE_VERSION, router
 from .config import Settings, get_settings
 from .jobs import JobRunner
@@ -46,6 +47,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     setup_logging(settings.log_level, settings.secrets)
     store = StateStore(settings.state_db)
     runner = JobRunner(store)
+
+    async def _area_handler(job, ctx):
+        return await area_job_handler(job, ctx, settings, store)
+
+    runner.register(AREA_JOB_KIND, _area_handler)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

@@ -19,16 +19,18 @@ function restoreWatch(): { jobId: string; request: AnalysisRequest } | undefined
     const value: unknown = JSON.parse(sessionStorage.getItem(WATCH_KEY) ?? 'null');
     if (!isObject(value) || !safeId(value.jobId) || !isObject(value.request)) return undefined;
     const r = value.request;
-    if (typeof r.variable_id !== 'string' || !isObject(r.location) || r.location.type !== 'point' ||
-        typeof r.location.lat !== 'number' || !Number.isFinite(r.location.lat) || Math.abs(r.location.lat) > 90 ||
-        typeof r.location.lon !== 'number' || !Number.isFinite(r.location.lon) || Math.abs(r.location.lon) > 180 ||
-        !isObject(r.period) || typeof r.period.start !== 'string' || typeof r.period.end !== 'string') return undefined;
+    if(typeof r.variable_id!=='string'||!isObject(r.location)||!isObject(r.period)||typeof r.period.start!=='string'||typeof r.period.end!=='string')return undefined;
+    const loc=r.location;
+    if(loc.type==='point'){if(typeof loc.lat!=='number'||!Number.isFinite(loc.lat)||Math.abs(loc.lat)>90||typeof loc.lon!=='number'||!Number.isFinite(loc.lon)||Math.abs(loc.lon)>180)return undefined;}
+    else if(loc.type==='area'){if(!Array.isArray(loc.bbox)||loc.bbox.length!==4||!loc.bbox.every(v=>typeof v==='number'&&Number.isFinite(v))||loc.bbox[0]>=loc.bbox[2]||loc.bbox[1]>=loc.bbox[3]||Math.abs(loc.bbox[0])>180||Math.abs(loc.bbox[2])>180||Math.abs(loc.bbox[1])>90||Math.abs(loc.bbox[3])>90)return undefined;}
+    else return undefined;
     return { jobId: value.jobId, request: r as unknown as AnalysisRequest };
   } catch { return undefined; }
 }
 
 /** One request at a time: superseded responses cannot overwrite the current selection. */
-export function useAnalysis() {
+export function useAnalysis(persistent=true) {
+  const persistWatch=useCallback((jobId:string|undefined,request?:AnalysisRequest)=>{if(persistent)saveWatch(jobId,request);},[persistent]);
   const [state, setState] = useState<ViewState>(idle);
   const active = useRef<AbortController | null>(null);
   const sequence = useRef(0);
@@ -45,11 +47,12 @@ export function useAnalysis() {
   }, []);
 
   const reset = useCallback(() => {
-    stop(); saveWatch(undefined); watchedJob.current = undefined; lastRequest.current = undefined;
+    stop(); persistWatch(undefined); watchedJob.current = undefined; lastRequest.current = undefined;
     setState(idle);
-  }, [stop]);
+  }, [stop,persistWatch]);
 
   const begin = useCallback((request: AnalysisRequest, resumeJob?: string) => {
+    if(!resumeJob) request={...request,request_id:crypto.randomUUID()};
     stop();
     const controller = new AbortController();
     active.current = controller;
@@ -58,7 +61,7 @@ export function useAnalysis() {
     const startedAt = Date.now();
     lastRequest.current = request;
     watchedJob.current = resumeJob;
-    if (!resumeJob) saveWatch(undefined);
+    if (!resumeJob) persistWatch(undefined);
     setState({ kind: resumeJob ? 'queued' : 'loading', request, jobId: resumeJob, warnings: [], startedAt });
     const armConnectionNotice = () => {
       clearTimeout(connectionTimer.current);
@@ -80,11 +83,11 @@ export function useAnalysis() {
       const next = analysisState(response, request);
       if ((next.kind === 'queued' || next.kind === 'running') && safeId(next.jobId)) {
         watchedJob.current = next.jobId;
-        saveWatch(next.jobId, request);
+        persistWatch(next.jobId, request);
         setState({ ...next, startedAt });
         schedulePoll(next.jobId, response.data.next_poll_s);
       } else {
-        watchedJob.current = undefined; saveWatch(undefined);
+        watchedJob.current = undefined; persistWatch(undefined);
         setState(next);
       }
     };
@@ -101,7 +104,7 @@ export function useAnalysis() {
           const result = await apiRequest(`/analyses/${encodeURIComponent(data.result.id)}`, { signal: controller.signal });
           await accept(result);
         } else if (data.status === 'failed') {
-          watchedJob.current = undefined; saveWatch(undefined);
+          watchedJob.current = undefined; persistWatch(undefined);
           setState({ kind: 'source_error', request, warnings: [], reason: 'job_failed' });
         } else if (data.status === 'queued' || data.status === 'running') {
           setState({ kind: data.status, request, warnings: [], jobId, startedAt,
@@ -121,17 +124,17 @@ export function useAnalysis() {
     armConnectionNotice();
     if (resumeJob) void poll(resumeJob);
     else void apiRequest('/analyses', { signal: controller.signal, body: request, timeout: 90000 }).then(accept).catch(fail);
-  }, [stop]);
+  }, [stop,persistWatch]);
 
   const retry = useCallback(() => {
     if (lastRequest.current) begin(lastRequest.current, watchedJob.current);
   }, [begin]);
 
   useEffect(() => {
-    const restored = restoreWatch();
+    const restored = persistent?restoreWatch():undefined;
     if (restored) begin(restored.request, restored.jobId);
     return stop;
-  }, [begin, stop]);
+  }, [begin, stop,persistent]);
 
   return { state, submit: begin, reset, retry };
 }

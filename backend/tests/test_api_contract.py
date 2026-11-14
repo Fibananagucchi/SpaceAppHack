@@ -46,9 +46,13 @@ def test_variables_catalog_has_explicit_capabilities(tmp_settings):
     assert [v["variable_id"] for v in variables] == [
         "t2m", "precip", "soil_moisture", "evapotranspiration", "surface_runoff", "airs_surface_air_temp", "no2_tropo"]
     for v in variables:
-        assert v["definition"] is None
-        assert v["product_boundaries"] == []
-        assert v["capabilities"] == {"point": "live", "area": "not_implemented", "map_europe": "not_implemented"}
+        assert isinstance(v["definition"], str) and len(v["definition"]) > 40
+        assert v["limitations"] and all(isinstance(x, str) for x in v["limitations"])
+        assert set(v["summary"]) == {"definition", "limitation"}
+        assert v["boundary_review"]["references"]
+        for b in v["product_boundaries"]:
+            assert b["reference"]["url"].startswith("https://") and len(b["date"]) == 7
+        assert v["capabilities"] == {"point": "live", "area": "live_in_europe_job_elsewhere", "map_europe": "precomputed"}
         assert v["source"]["doi"]
         assert not any(k.startswith("_") for k in v)
 
@@ -82,13 +86,24 @@ def test_invalid_analysis_requests_return_400(tmp_settings):
             assert r.json()["errors"]
 
 
-def test_area_request_is_valid_but_not_implemented_until_step_3(tmp_settings):
-    payload = {**POINT, "location": {"type": "area", "bbox": [32.0, 46.0, 36.0, 48.0]}}
-    with client_for(tmp_settings()) as client:
+def test_area_outside_europe_becomes_a_job_with_explicit_failure_without_token(tmp_settings):
+    import time
+    payload = {**POINT, "location": {"type": "area", "bbox": [100.0, 10.0, 104.0, 12.0]}}
+    with client_for(tmp_settings(token=None)) as client:
         r = client.post("/api/v1/analyses", json=payload)
-    assert r.status_code == 501
-    assert r.json()["reason"] == "area_available_from_step_3"
-    assert r.json()["request"]["location"]["bbox"] == [32.0, 46.0, 36.0, 48.0]
+        assert r.status_code == 202
+        job = r.json()
+        assert job["kind"] == "area_series" and job["status"] in ("queued", "running", "failed")
+        assert job["estimate_s"] == {"value": 180, "kind": "estimate"}
+        assert job["request"]["location"]["bbox"] == [100.0, 10.0, 104.0, 12.0]
+        for _ in range(100):
+            job = client.get(f"/api/v1/jobs/{job['job_id']}").json()
+            if job["status"] == "failed":
+                break
+            time.sleep(0.05)
+    assert job["status"] == "failed"
+    assert job["error"]["code"] == "source_error" and job["error"]["kind"] == "rejected"
+    assert job["result"] is None
 
 
 def test_unknown_resources_are_explicit_not_found(tmp_settings):
@@ -186,3 +201,20 @@ def test_log_redaction():
     RedactSecretsFilter(("abc123secret",)).filter(record)
     assert "abc123secret" not in record.getMessage()
     assert json.dumps(record.getMessage())
+
+
+def test_prepared_map_copy_is_served_when_runtime_map_is_missing(tmp_settings):
+    import gzip
+    settings = tmp_settings()
+    folder = settings.prepared_dir / "maps" / "europe"
+    folder.mkdir(parents=True)
+    payload = {"status": "ok", "format_version": "map-1.2", "variable_id": "t2m", "period": {"start": "1980-01", "end": "2026-09"},
+               "computed_at": "2026-11-14T15:46:40Z", "cells": {"slope": [0.1], "status": [0]}}
+    with gzip.open(folder / "t2m.json.gz", "wt", encoding="utf-8") as f:
+        json.dump(payload, f)
+    with client_for(settings) as client:
+        body = client.get("/api/v1/maps/europe/t2m").json()
+        index = client.get("/api/v1/maps/europe").json()
+    assert body["status"] == "ok" and body["provenance"]["served_from"] == "prepared_copy_in_image"
+    assert {m["variable_id"]: m["status"] for m in index["maps"]}["t2m"] == "ok"
+    assert {m["variable_id"]: m["status"] for m in index["maps"]}["precip"] == "not_ready"

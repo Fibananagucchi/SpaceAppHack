@@ -30,7 +30,7 @@ gcloud run jobs $verb $JOB `
   --add-volume-mount "volume=data,mount-path=/mnt/data" `
   --set-env-vars "DATA_DIR=/mnt/data,RAW_DIR=/mnt/data/raw" `
   --command "python" `
-  --args "-m,backend.pipelines.europe_cube,--products,all,--concurrency,6" `
+  --args "-m,backend.pipelines.europe_cube,--products,all,--concurrency,6,--with-maps" `
   --cpu 2 `
   --memory 4Gi `
   --task-timeout 6h `

@@ -146,7 +146,14 @@ def test_point_analysis_full_response(client_with_series):
     assert an["sen_slope"]["status"] == "ok" and an["sen_slope"]["unit"] == "°C per decade"
     assert an["mann_kendall"]["p_value"] is not None
     assert body["trend"]["raw"]["ols_t_test"]["status"] == "not_applicable"
-    assert body["breaks"] == {"status": "not_implemented", "reason": "available_from_step_2"}
+    b = body["breaks"]
+    assert b["status"] == "ok" and b["processing_version"] == "breaks-1"
+    assert b["change_point"]["status"] in ("detected", "inconclusive", "not_distinct_from_trend", "not_detected")
+    assert b["outliers"]["status"] == "ok"
+    # t2m 1990-2014 crosses the documented MERRA-2 stream starts 1992-01, 2001-01, 2011-01
+    crossed = [w["boundary_id"] for w in body["warnings"] if w["code"] == "product_boundary_in_period"]
+    assert crossed == ["merra2_stream_2", "merra2_stream_3", "merra2_stream_4"]
+    assert all(w["reference"]["url"].startswith("https://") for w in body["warnings"] if w["code"] == "product_boundary_in_period")
 
 
 def test_requested_period_trims_and_warns(client_with_series):
@@ -165,6 +172,7 @@ def test_period_outside_product_is_no_data(client_with_series):
         body = client.post("/api/v1/analyses", json=payload).json()
     assert body["series"]["status"] == "no_data" and body["series"]["reason"] == "period_outside_product"
     assert body["trend"] == {"status": "not_applicable", "reason": "no_series_data"}
+    assert body["breaks"] == {"status": "not_applicable", "reason": "no_series_data"}
 
 
 def test_land_variable_over_sea_is_outside_coverage(client_with_series):
@@ -197,3 +205,98 @@ def test_source_errors_are_explicit(client_with_series, kind, code):
     body = r.json()
     assert body["status"] == "source_error" and body["error"]["kind"] == kind
     assert "series" not in body
+
+
+def test_step_in_series_produces_change_seam_fields_and_warning(client_with_series):
+    rng = np.random.default_rng(3)
+    v = rng.normal(scale=0.4, size=300)
+    v[180:] += 2.5
+    with client_with_series(fake_series(values=v)) as client:
+        body = client.post("/api/v1/analyses", json={**POINT, "variable_id": "airs_surface_air_temp"}).json()
+    cp = body["breaks"]["change_point"]
+    assert cp["status"] == "detected" and cp["change_id"].startswith("c_")
+    assert body["breaks"]["trend_affected_by_change"] is True
+    assert {"code": "change_may_affect_trend", "change_id": cp["change_id"], "date": cp["date"]} in body["warnings"]
+    assert not any(w["code"] == "product_boundary_in_period" for w in body["warnings"])  # AIRS: none documented
+
+
+
+# ---------------------------------------------------------------------------------------------
+# Areas and request_id (step 3)
+# ---------------------------------------------------------------------------------------------
+def test_area_inside_europe_is_an_area_weighted_cube_mean(tmp_settings):
+    settings = tmp_settings()
+    write_tiny_cube(settings.data_dir)
+    s, resolved = series.area_from_cube(settings.data_dir, "t2m", (32.0, 45.9, 33.5, 47.2))
+    assert resolved["cells_total"] == 6 and resolved["cells_with_data"] == 6
+    assert resolved["bbox_used"] == [32.1875, 45.75, 33.4375, 47.25]
+    assert s.values[0] == pytest.approx(280.0 - 273.15, abs=1e-4)
+    assert s.missing_reasons[2] is None  # 5 of 6 cells valid >= 50 %
+    with TestClient(create_app(settings)) as client:
+        body = client.post("/api/v1/analyses", json={"variable_id": "t2m", "request_id": "abc-123",
+                                                     "location": {"type": "area", "bbox": [32.0, 45.9, 33.5, 47.2]}}).json()
+    assert body["request_id"] == "abc-123"
+    assert body["location_resolved"]["type"] == "area" and body["location_resolved"]["cells_total"] == 6
+    assert body["provenance"]["source_service"] == "europe_cube"
+    assert body["series"]["status"] == "ok"
+    assert body["trend"]["monthly_anomalies"]["mann_kendall"]["status"] == "insufficient_for_test"  # 24 months only
+
+
+def test_area_smaller_than_a_grid_cell_is_explicit(tmp_settings):
+    settings = tmp_settings()
+    write_tiny_cube(settings.data_dir)
+    with TestClient(create_app(settings)) as client:
+        body = client.post("/api/v1/analyses", json={"variable_id": "t2m",
+                                                     "location": {"type": "area", "bbox": [32.6, 46.1, 32.7, 46.2]}}).json()
+    assert body["series"]["status"] == "no_data" and body["series"]["reason"] == "area_smaller_than_grid_cell"
+
+
+def test_server_generates_request_id_when_missing(client_with_series):
+    with client_with_series(fake_series()) as client:
+        body = client.post("/api/v1/analyses", json=POINT).json()
+    assert body["request_id"].startswith("r_")
+    assert body["request"]["request_id"] is None
+
+
+def test_area_job_deduplicates_and_completes_with_analysis(tmp_settings, monkeypatch):
+    import asyncio
+    import time
+
+    async def slow_harmony(settings, store, variable_id, bbox, on_stage=None):
+        if on_stage:
+            on_stage("waiting_for_source")
+        await asyncio.sleep(0.4)
+        s = fake_series()
+        s.provenance["source_service"] = "harmony_area_average"
+        return s
+
+    monkeypatch.setattr(analysis, "fetch_harmony_area", slow_harmony)
+    payload = {"variable_id": "precip", "location": {"type": "area", "bbox": [-50.0, -25.0, -45.0, -20.0]}}
+    with TestClient(create_app(tmp_settings())) as client:
+        first = client.post("/api/v1/analyses", json={**payload, "request_id": "one"})
+        second = client.post("/api/v1/analyses", json={**payload, "request_id": "two"})
+        assert first.status_code == second.status_code == 202
+        assert first.json()["job_id"] == second.json()["job_id"]  # same science request -> same job
+        assert second.json()["request_id"] == "two"
+        job_id = first.json()["job_id"]
+        for _ in range(100):
+            job = client.get(f"/api/v1/jobs/{job_id}").json()
+            if job["status"] == "complete":
+                break
+            time.sleep(0.05)
+        assert job["status"] == "complete"
+        assert job["result"]["type"] == "analysis" and job["result"]["url"].endswith(job["result"]["id"])
+        result = client.get(job["result"]["url"]).json()
+    assert result["location_resolved"]["averaging"].startswith("area mean computed by the NASA Giovanni")
+    assert result["provenance"]["source_service"] == "harmony_area_average"
+    assert result["series"]["status"] == "ok"
+
+
+def test_parse_harmony_csv():
+    lines = ["User Start Date:,1998-01-01", "Fill Value:,-9999.900390625", ",", "time,mean_x",
+             "1998-01-01T00:00:00,0.06", "1998-02-01T00:00:00,-9999.900390625"]
+    text = chr(10).join(lines)
+    fill, rows = series.parse_harmony_csv(text)
+    assert fill == pytest.approx(-9999.9004)
+    months, values, reasons, _ = series._monthly_from_rows(rows, fill, daily=False)
+    assert values[0] == pytest.approx(0.06) and np.isnan(values[1]) and reasons[1] == "fill_value"

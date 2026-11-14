@@ -61,6 +61,8 @@ class Period(BaseModel):
 
 class AnalysisRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    request_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$",
+                                   description="optional client id, echoed back to match late responses")
     variable_id: str
     location: Location
     period: Period | None = None
