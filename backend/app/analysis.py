@@ -1,4 +1,4 @@
-"""Mode 1 analysis of a point (step 1): real series + statistics + explicit states."""
+"""Point analysis: real series + mode-1 statistics (step 1) + basic mode 2 (step 2), explicit states."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from . import catalog, stats
+from .breaks import analyze_breaks
 from .api.models import AnalysisRequest
 from .config import Settings
 from .series import SourceError, get_point_series, month_range
@@ -54,7 +55,7 @@ async def point_analysis(settings: Settings, store: StateStore, req: AnalysisReq
         "requested_period": requested,
         "observations_period": None,
         "analysis_period": None,
-        "breaks": {"status": "not_implemented", "reason": "available_from_step_2"},
+        "breaks": {"status": "not_applicable", "reason": "no_series_data"},
         "warnings": warnings,
     }
 
@@ -126,5 +127,20 @@ async def point_analysis(settings: Settings, store: StateStore, req: AnalysisReq
         "unit_conversion": variable["processing"]["unit_conversion"],
     }
     result["trend"] = computed["trend"]
+
+    # ---- basic mode 2: possible change, outliers, documented product boundaries ------------
+    boundaries = [b for b in catalog.product_boundaries(req.variable_id) if start < b["date"] <= end]
+    for b in boundaries:
+        warnings.append({"code": "product_boundary_in_period", "boundary_id": b["boundary_id"], "date": b["date"],
+                         "kind": b["kind"], "title": b["title"], "reference": b["reference"]})
+    brk = analyze_breaks(window, anomalies, unit, computed["trend"]["monthly_anomalies"], boundaries, w_values)
+    result["breaks"] = brk
+    if brk.get("trend_affected_by_change") is True:
+        warnings.append({"code": "change_may_affect_trend", "change_id": brk["change_point"]["change_id"],
+                         "date": brk["change_point"]["date"]})
+    for near in brk.get("near_product_boundary", []):
+        warnings.append({"code": "change_near_product_boundary", "change_id": brk["change_point"]["change_id"],
+                         "boundary_id": near["boundary_id"], "distance_months": near["distance_months"]})
+
     store.put_analysis(analysis_id, request, result)
     return 200, result

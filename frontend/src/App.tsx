@@ -5,6 +5,9 @@ import { isObject, parseVariables, requestFromFields } from './contract';
 import type { ObjectValue, Variable } from './contract';
 import { StatusNotice } from './StatusNotice';
 import { useAnalysis } from './useAnalysis';
+import { AnalysisView } from './AnalysisView';
+import { PointMap } from './PointMap';
+import { coordinate } from './format';
 import outline from './assets/europe-outline.svg';
 
 type ResourceStatus = 'loading' | 'connecting' | 'ready' | 'error';
@@ -81,6 +84,11 @@ export function App() {
   const edit = (setter: (v: string) => void, value: string) => {
     analysis.reset(); setFormError(''); setter(value);
   };
+  const pickPoint = (lat: number, lon: number) => {
+    analysis.reset(); setFormError(''); setLatitude(coordinate(lat)); setLongitude(coordinate(lon));
+  };
+  const mapLat = latitude.trim() && Number.isFinite(Number(latitude)) && Math.abs(Number(latitude)) <= 90 ? Number(latitude) : undefined;
+  const mapLon = longitude.trim() && Number.isFinite(Number(longitude)) && Math.abs(Number(longitude)) <= 180 ? Number(longitude) : undefined;
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const checked = requestFromFields(selectedId, latitude, longitude, start, end);
@@ -99,7 +107,7 @@ export function App() {
     <a className="skip-link" href="#workspace">Skip to workspace</a>
     <header className="app-header">
       <a className="wordmark" href="/" aria-label="Earth system trends home">EARTH SYSTEM <span>/</span> TRENDS</a>
-      <nav aria-label="Workspace views"><span aria-current="page">Explore</span><span className="unavailable-view">Time series <span className="sr-only">not available in this view yet</span></span><span className="unavailable-view">Change points <span className="sr-only">not available in this view yet</span></span></nav>
+      <nav aria-label="Workspace views"><a href="#point-selection" aria-current="page">Explore</a><a href="#series">Time series</a><a href="#changes">Change points</a></nav>
       <div className="service-indicator" role="status"><span className={`service-dot service-${serviceStatus}`} aria-hidden="true" />{serviceStatus === 'ready' ? 'Service connected' : serviceStatus === 'error' ? 'Connection unavailable' : 'Connecting to service'}<button className="text-button" onClick={refresh} aria-label="Refresh service and variable availability">Refresh <span aria-hidden="true">↻</span></button></div>
     </header>
     <div className="intro"><p className="eyebrow">EARTH OBSERVATIONS / REGIONAL CHANGE</p><h1>Inspect the signal.</h1><p className="intro-note">Choose what to measure.<br />Start with the observations.</p></div>
@@ -114,8 +122,8 @@ export function App() {
         <p className="panel-footnote">Satellite observations and Earth system models. Coverage depends on the product.</p>
       </aside>
 
-      <section className={`evidence-stage ${analysis.state.kind === 'idle' ? 'stage-idle' : 'stage-active'}`} aria-label="Request and data status">
-        <div className="stage-heading"><span className="eyebrow">Europe / trend layer</span><span className="layer-state">{mapStatus === 'ready' ? 'Prepared layer available' : mapStatus === 'not_ready' ? 'Not ready' : mapStatus === 'error' ? 'Layer status unavailable' : 'Checking availability'}</span></div>
+      <section id="series" className={`evidence-stage ${analysis.state.kind === 'idle' ? 'stage-idle' : 'stage-active'}`} aria-label="Request and data status">
+        <div className="stage-heading"><span className="eyebrow">Point analysis</span><span className="layer-state">Europe trend layer: {mapStatus === 'ready' ? 'Prepared layer available' : mapStatus === 'not_ready' ? 'Not ready' : mapStatus === 'error' ? 'Layer status unavailable' : 'Checking availability'}</span></div>
         <img className="geographic-outline" src={outline} alt="" aria-hidden="true" />
         {analysis.state.kind === 'idle' ? <div className="empty-stage">
           <div className="empty-brackets" aria-hidden="true"><span>[</span><span>]</span></div>
@@ -123,22 +131,23 @@ export function App() {
           <h2>{mapStatus === 'error' ? 'The layer could not be checked.' : mapStatus === 'ready' ? 'Begin with a point.' : 'The record comes first.'}</h2>
           <p>{mapStatus === 'not_ready' ? 'The service has not returned a computed trend map for this variable. You can still send a point request.' : mapStatus === 'error' ? 'The map status is unavailable. This does not mean there are no observations at your location.' : 'Enter coordinates and a period to check the observations available for your selection.'}</p>
           <p className="outline-caption">Geographic outline only. No trend values are displayed.</p>
-        </div> : <StatusNotice state={analysis.state} onRetry={analysis.retry} onRefresh={refresh} />}
+        </div> : analysis.state.kind === 'ready' && analysis.state.result && selected ? <AnalysisView key={analysis.state.analysisId} state={analysis.state} variable={selected} /> : <StatusNotice state={analysis.state} onRetry={analysis.retry} onRefresh={refresh} />}
         <div className="map-credit">Geographic outline: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a></div>
       </section>
 
-      <aside className="selection-panel" aria-label="Request selection">
+      <aside id="point-selection" className="selection-panel" aria-label="Request selection">
         <p className="eyebrow">Your selection</p><h2>Start with a point.</h2>
         <p className="selection-intro">Coordinates can refer to any location. The service checks the selected product’s coverage.</p>
+        <PointMap lat={mapLat} lon={mapLon} onPick={pickPoint} />
         <form onSubmit={submit} noValidate>
           <fieldset disabled={!selected}><legend>Coordinates <span>WGS84</span></legend>
-            <div className="coordinate-fields"><label htmlFor="latitude">Latitude<input id="latitude" name="latitude" inputMode="decimal" type="number" min="-90" max="90" step="any" value={latitude} onChange={e => edit(setLatitude, e.target.value)} aria-describedby="coordinate-help" /></label>
-              <label htmlFor="longitude">Longitude<input id="longitude" name="longitude" inputMode="decimal" type="number" min="-180" max="180" step="any" value={longitude} onChange={e => edit(setLongitude, e.target.value)} aria-describedby="coordinate-help" /></label></div>
-            <p id="coordinate-help" className="field-help">Latitude −90 to 90. Longitude −180 to 180.</p>
+            <div className="coordinate-fields"><label htmlFor="latitude">Latitude<input id="latitude" name="latitude" inputMode="decimal" type="text" lang="en" spellCheck={false} placeholder="e.g. 50.45" value={latitude} onChange={e => edit(setLatitude, e.target.value)} aria-describedby="coordinate-help" /></label>
+              <label htmlFor="longitude">Longitude<input id="longitude" name="longitude" inputMode="decimal" type="text" lang="en" spellCheck={false} placeholder="e.g. 30.52" value={longitude} onChange={e => edit(setLongitude, e.target.value)} aria-describedby="coordinate-help" /></label></div>
+            <p id="coordinate-help" className="field-help">Latitude −90 to 90. Longitude −180 to 180. Use a dot for decimals.</p>
           </fieldset>
           <fieldset disabled={!selected}><legend>Analysis period</legend>
-            <div className="period-fields"><label htmlFor="start-month">From<input id="start-month" type="month" value={start} onChange={e => edit(setStart, e.target.value)} /></label>
-              <label htmlFor="end-month">To<input id="end-month" type="month" value={end} onChange={e => edit(setEnd, e.target.value)} /></label></div>
+            <div className="period-fields"><label htmlFor="start-month">From<input id="start-month" type="text" inputMode="numeric" lang="en" maxLength={7} placeholder="YYYY-MM" aria-describedby="period-help" value={start} onChange={e => edit(setStart, e.target.value)} /></label>
+              <label htmlFor="end-month">To<input id="end-month" type="text" inputMode="numeric" lang="en" maxLength={7} placeholder="YYYY-MM" aria-describedby="period-help" value={end} onChange={e => edit(setEnd, e.target.value)} /></label></div><p id="period-help" className="field-help">Enter year-month, for example 2000-01.</p>
           </fieldset>
           {formError && <p className="form-error" role="alert">{formError}</p>}
           <button className="button button-primary request-button" type="submit" disabled={!selected || busy}>{busy ? 'Request in progress' : 'Request analysis'} <span aria-hidden="true">↗</span></button>

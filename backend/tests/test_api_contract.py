@@ -47,7 +47,9 @@ def test_variables_catalog_has_explicit_capabilities(tmp_settings):
         "t2m", "precip", "soil_moisture", "evapotranspiration", "surface_runoff", "airs_surface_air_temp", "no2_tropo"]
     for v in variables:
         assert v["definition"] is None
-        assert v["product_boundaries"] == []
+        assert v["boundary_review"]["references"]
+        for b in v["product_boundaries"]:
+            assert b["reference"]["url"].startswith("https://") and len(b["date"]) == 7
         assert v["capabilities"] == {"point": "live", "area": "not_implemented", "map_europe": "not_implemented"}
         assert v["source"]["doi"]
         assert not any(k.startswith("_") for k in v)

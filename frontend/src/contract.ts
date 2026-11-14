@@ -42,6 +42,7 @@ export interface ViewState {
   progress?: { done: number; total: number; unit: string };
   warnings: PublicWarning[];
   testUnavailable?: boolean;
+  result?: ObjectValue;
 }
 
 export interface ApiResponse { httpStatus: number; data: ObjectValue }
@@ -79,6 +80,7 @@ export const isMonth = (v: unknown): v is string => typeof v === 'string' && /^\
 export function requestFromFields(variableId: string, lat: string, lon: string, start: string, end: string):
   { request: AnalysisRequest } | { error: string } {
   if (!lat.trim() || !lon.trim()) return { error: 'Enter both latitude and longitude.' };
+  if (lat.includes(',') || lon.includes(',')) return { error: 'Use a dot for decimal coordinates, for example 50.45.' };
   const latitude = Number(lat), longitude = Number(lon);
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return { error: 'Latitude must be between −90 and 90.' };
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return { error: 'Longitude must be between −180 and 180.' };
@@ -92,7 +94,8 @@ export function getWarnings(data: ObjectValue): PublicWarning[] {
   if (!Array.isArray(data.warnings)) return [];
   return data.warnings.filter(isObject).filter(w => typeof w.code === 'string').map(w => ({
     code: w.code as string, ...(typeof w.date === 'string' ? { date: w.date } : {}),
-    ...(typeof w.reference === 'string' && /^https?:\/\//.test(w.reference) ? { reference: w.reference } : {}),
+    ...((typeof w.reference === 'string' && /^https?:\/\//.test(w.reference)) ? { reference: w.reference } :
+      isObject(w.reference) && typeof w.reference.url === 'string' && /^https?:\/\//.test(w.reference.url) ? { reference: w.reference.url } : {}),
   }));
 }
 
@@ -137,7 +140,7 @@ export function analysisState(response: ApiResponse, request: AnalysisRequest): 
     if (data.series.status === 'no_data') return { ...base, kind: 'no_data' };
     if (data.series.status === 'insufficient_for_test') return { ...base, kind: 'insufficient_for_test' };
     if (data.series.status === 'source_error') return { ...base, kind: 'source_error' };
-    if (data.series.status === 'ok') return { ...base, kind: 'ready', analysisId: data.analysis_id,
+    if (data.series.status === 'ok') return { ...base, kind: 'ready', analysisId: data.analysis_id, result: data,
       testUnavailable: containsUnavailableTest(data.trend) };
   }
   return { ...base, kind: 'protocol_error' };

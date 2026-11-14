@@ -146,7 +146,14 @@ def test_point_analysis_full_response(client_with_series):
     assert an["sen_slope"]["status"] == "ok" and an["sen_slope"]["unit"] == "°C per decade"
     assert an["mann_kendall"]["p_value"] is not None
     assert body["trend"]["raw"]["ols_t_test"]["status"] == "not_applicable"
-    assert body["breaks"] == {"status": "not_implemented", "reason": "available_from_step_2"}
+    b = body["breaks"]
+    assert b["status"] == "ok" and b["processing_version"] == "breaks-1"
+    assert b["change_point"]["status"] in ("detected", "inconclusive", "not_distinct_from_trend", "not_detected")
+    assert b["outliers"]["status"] == "ok"
+    # t2m 1990-2014 crosses the documented MERRA-2 stream starts 1992-01, 2001-01, 2011-01
+    crossed = [w["boundary_id"] for w in body["warnings"] if w["code"] == "product_boundary_in_period"]
+    assert crossed == ["merra2_stream_2", "merra2_stream_3", "merra2_stream_4"]
+    assert all(w["reference"]["url"].startswith("https://") for w in body["warnings"] if w["code"] == "product_boundary_in_period")
 
 
 def test_requested_period_trims_and_warns(client_with_series):
@@ -165,6 +172,7 @@ def test_period_outside_product_is_no_data(client_with_series):
         body = client.post("/api/v1/analyses", json=payload).json()
     assert body["series"]["status"] == "no_data" and body["series"]["reason"] == "period_outside_product"
     assert body["trend"] == {"status": "not_applicable", "reason": "no_series_data"}
+    assert body["breaks"] == {"status": "not_applicable", "reason": "no_series_data"}
 
 
 def test_land_variable_over_sea_is_outside_coverage(client_with_series):
@@ -197,3 +205,16 @@ def test_source_errors_are_explicit(client_with_series, kind, code):
     body = r.json()
     assert body["status"] == "source_error" and body["error"]["kind"] == kind
     assert "series" not in body
+
+
+def test_step_in_series_produces_change_seam_fields_and_warning(client_with_series):
+    rng = np.random.default_rng(3)
+    v = rng.normal(scale=0.4, size=300)
+    v[180:] += 2.5
+    with client_with_series(fake_series(values=v)) as client:
+        body = client.post("/api/v1/analyses", json={**POINT, "variable_id": "airs_surface_air_temp"}).json()
+    cp = body["breaks"]["change_point"]
+    assert cp["status"] == "detected" and cp["change_id"].startswith("c_")
+    assert body["breaks"]["trend_affected_by_change"] is True
+    assert {"code": "change_may_affect_trend", "change_id": cp["change_id"], "date": cp["date"]} in body["warnings"]
+    assert not any(w["code"] == "product_boundary_in_period" for w in body["warnings"])  # AIRS: none documented

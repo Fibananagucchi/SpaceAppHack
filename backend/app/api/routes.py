@@ -1,4 +1,4 @@
-"""Contract v1.1 endpoints — step 1 (mode 1 minimum for points).
+"""Contract v1.1 endpoints — step 2 (mode 1 minimum + basic mode 2 for points).
 
 Every endpoint answers with real data or an explicit state. Point analyses use real
 series (Europe cube or Giovanni); areas answer ``not_implemented`` until step 3,
@@ -18,8 +18,8 @@ from ..analysis import point_analysis
 from .models import AnalysisRequest, InvestigationRequest
 
 API_VERSION = "v1"
-SERVICE_VERSION = "0.2.0"
-STEP = 1
+SERVICE_VERSION = "0.3.0"
+STEP = 2
 
 router = APIRouter(prefix="/api/v1")
 

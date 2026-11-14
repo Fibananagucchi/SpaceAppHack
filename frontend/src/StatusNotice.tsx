@@ -7,7 +7,7 @@ const copy: Record<StateKind, { label: string; title: string; description: strin
   connecting: { label: 'Connecting', title: 'Connecting to the analysis service…', description: 'Waiting for a response. A slow connection does not tell us whether observations are available.' },
   queued: { label: 'Queued', title: 'Your request is queued.', description: 'The service has accepted the request. Observations are not available yet.' },
   running: { label: 'In progress', title: 'Retrieving observations…', description: 'The service is working on this selection. Missing observations will not be replaced with invented values.' },
-  ready: { label: 'Request complete', title: 'Observations received.', description: 'The service returned this selection. Detailed time-series analysis is not available in this view yet.' },
+  ready: { label: 'Request complete', title: 'Observations received.', description: 'The service returned observations for this selection.' },
   no_data: { label: 'No observations', title: 'No observations for this selection.', description: 'Try another place, period or variable. No observations is different from a measured value of zero.' },
   source_error: { label: 'Request unavailable', title: 'The source could not complete this request.', description: 'Your selection is preserved. This failure does not mean that observations are absent.' },
   insufficient_for_test: { label: 'Test unavailable', title: 'Not enough evidence for this test.', description: 'Observations may exist, but this test cannot be run on the returned series. No statistic is substituted.' },
@@ -23,22 +23,25 @@ const stageCopy: Record<string, string> = {
 };
 
 export function WarningNotices({ warnings }: { warnings: PublicWarning[] }) {
-  const boundary = warnings.filter(w => w.code === 'product_boundary_in_period' || w.code === 'change_near_product_boundary');
+  const boundary = warnings.filter(w => w.code === 'product_boundary_in_period');
+  const nearBoundary = warnings.some(w=>w.code==='change_near_product_boundary');
   const other: Record<string, string> = {
     series_ended: 'The service reports that this product’s available record has ended or is not current.',
     partial_period: 'Only part of the requested period is covered by this product.',
     many_missing: 'The returned series contains many missing observations.',
     climatology_incomplete: 'Some calendar months lack enough observations to define monthly anomalies.',
+    change_may_affect_trend: 'A possible abrupt change may affect the whole-period trend estimate. Inspect the change and both segments.',
     source_unreachable_cached_copy: 'The source is currently unreachable. The service returned saved observations.',
   };
   return <>
     {boundary.length > 0 && <aside className="warning-notice" aria-label="Product boundary">
       <span className="warning-symbol" aria-hidden="true">│</span>
-      <div><strong>Product boundary — interpret this change with care.</strong>
-        <p>A documented product change may affect the record{boundary[0].date ? ` near ${boundary[0].date}` : ''}. This is a warning, not a determination of cause.</p>
-        {boundary[0].reference && <a href={boundary[0].reference} target="_blank" rel="noreferrer">Product documentation ↗</a>}
+      <div><strong>Documented product boundaries — check the record.</strong>
+        <p>Documented changes in processing or instruments occur in this period. They can affect the record; their presence does not establish the cause of an observed change.</p>
+        <ul>{boundary.map((b,i)=><li key={i}>{b.date ?? 'Date not returned'}{b.reference && <> · <a href={b.reference} target="_blank" rel="noreferrer">Product documentation ↗</a></>}</li>)}</ul>
       </div>
     </aside>}
+    {nearBoundary&&<aside className="warning-notice"><p>The service reports that the candidate date is near a documented product boundary. Temporal proximity does not establish an artifact or a cause.</p></aside>}
     {warnings.filter(w => other[w.code]).map((w, i) => <aside className="warning-notice" key={`${w.code}-${i}`}><p>{other[w.code]}</p></aside>)}
   </>;
 }

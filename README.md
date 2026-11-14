@@ -4,7 +4,7 @@ _Project description will be added once the team approves the concept._
 
 ## Status
 
-Development step 1: trend analysis for a point. `POST /api/v1/analyses` returns a real NASA monthly series for one of seven variables, its rate of change (Sen's slope with a 95 % confidence interval) and three significance tests (Mann-Kendall with autocorrelation correction, OLS t-test with effective sample size, Seasonal Kendall on raw data). Areas, trend maps and change-point analysis come in later steps and answer with explicit states until then. The backend never shows invented, interpolated or placeholder data values: a missing month is `null` with a reason.
+Development step 1: trend analysis for a point. `POST /api/v1/analyses` returns a real NASA monthly series for one of seven variables, its rate of change (Sen's slope with a 95 % confidence interval) and three significance tests (Mann-Kendall with autocorrelation correction, OLS t-test with effective sample size, Seasonal Kendall on raw data). Step 2 adds a first look at abrupt changes: a Pettitt change-point test whose result is classified as a step, a gradual change or inconclusive (BIC comparison of a step and a straight line), robust outlier flags, and documented product boundaries (version, calibration, forcing or instrument changes) so that a change of data product is not mistaken for an event. Areas and trend maps come in later steps and answer with explicit states until then. The backend never shows invented, interpolated or placeholder data values: a missing month is `null` with a reason.
 
 ## Repository layout
 
