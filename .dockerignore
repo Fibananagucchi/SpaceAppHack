@@ -1,21 +1,18 @@
-# Never send secrets or local data into the build context
+.git
+.gitignore
 .env
 .env.*
 !.env.example
-.git
+
 .venv
-venv
-data/
-**/__pycache__
-**/*.pyc
+__pycache__
+*.pyc
 .pytest_cache
-# Not part of the product image
-docs/
-discussion/
-tasks/
-reports/
-frontend/_sketches/
-frontend/node_modules/
-frontend/dist/
+
+node_modules
+frontend/node_modules
+frontend/dist
+
+data/
 deploy/
-*.log
+backend/tests/
