@@ -2,6 +2,8 @@
 
 _Built for the NASA Space Apps Challenge 2026 challenge "Be An Earth System Trend Detective!"._
 
+**Live demo:** <https://spaceapp.blueforest-8c18d6be.swedencentral.azurecontainerapps.io>
+
 Pick a place on Earth and one of nine NASA variables. The tool tells you, from real NASA data only:
 
 1. **Is it changing, and how fast?** The rate of change with a confidence interval and three significance tests.
