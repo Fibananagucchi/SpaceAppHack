@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from . import catalog, stats
+from . import annual, catalog, stats
 from .api.models import AnalysisRequest
 from .breaks import analyze_breaks
 from .config import Settings
@@ -142,6 +142,11 @@ def build_result(store: StateStore, req: AnalysisRequest, request_id: str, serie
         "coverage": {"expected": len(window), "valid": n_valid, "first_valid": obs_start, "last_valid": obs_end},
         "aggregation": series.aggregation,
         "unit_conversion": variable["processing"]["unit_conversion"],
+        "annual": annual.annual_series(req.variable_id, window, anomalies, unit, {
+            **computed["climatology"]["base_period"],
+            # full_record: same baseline as the globe frames (each cell's whole record); otherwise the
+            # requested period's own climatology, which is not comparable with the globe neighbours
+            "kind": "full_record" if (start, end) == (obs_start, obs_end) else "analysis_period"}),
     }
     result["trend"] = computed["trend"]
 

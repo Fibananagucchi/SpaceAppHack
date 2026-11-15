@@ -19,21 +19,43 @@ function Reasons({title,value}: {title:string;value:unknown}) {
   return <div className="reason-column"><h4>{title}</h4>{items.length?<ul>{items.map((v,i)=><li key={i}>{typeof v==='string'?v:text(v.text)}{isObject(v)&&<References value={v.reference?[v.reference]:v.references}/>}</li>)}</ul>:<p className="field-help">No items returned.</p>}</div>;
 }
 
+export function eventDate(value:unknown):string {
+  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value)))return 'Date not available';
+  return new Intl.DateTimeFormat('en-US',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(`${value}T00:00:00Z`));
+}
+
+export function DocumentedEvents({value}:{value:unknown}) {
+  const events=Array.isArray(value)?value.filter(isObject).filter(e=>typeof e.title==='string'&&Array.isArray(e.sources)&&e.sources.some(s=>isObject(s)&&safeLink(s.url))):[];
+  if(!events.length)return null;
+  return <div className="documented-events">{events.map((event,i)=>{
+    const dates=record(event.dates),match=record(event.match),window=record(event.match_window);
+    return <article key={typeof event.event_id==='string'?event.event_id:i} className="documented-event" aria-label="Documented event">
+      <p className="eyebrow">Documented event{event.type==='human'?' / human influence':event.type==='natural'?' / natural event':''}</p>
+      <h4>{text(event.title)}</h4><p className="event-date">{eventDate(dates.start)}{dates.end!==dates.start?` — ${eventDate(dates.end)}`:''}</p>
+      <ul className="event-sources">{(event.sources as unknown[]).filter(isObject).filter(s=>safeLink(s.url)).map((source,j)=><li key={j}><a href={safeLink(source.url)} target="_blank" rel="noreferrer">{typeof source.publisher==='string'?`${source.publisher} · `:''}{text(source.title)} ↗</a></li>)}</ul>
+      <details><summary>Why this event matches</summary>{typeof dates.as_described==='string'&&<p>{dates.as_described}</p>}<dl><div><dt>Variable / change month</dt><dd>{text(match.variable)} / {month(match.change_month)}</dd></div><div><dt>Time window checked</dt><dd>{month(window.start)} — {month(window.end)}</dd></div><div><dt>Place</dt><dd>{text(match.place)}</dd></div><div><dt>Direction check</dt><dd>{text(match.direction)}</dd></div></dl><p>A documented contextual match is not proof that this event caused the measured change.</p></details>
+    </article>;
+  })}</div>;
+}
+
 /** This component displays the service decision; it never assigns a cause. */
-export function Mode2Conclusion({value}: {value:unknown}) {
+export function Mode2Conclusion({value,checks}: {value:unknown;checks?:unknown}) {
   const c=record(value),label=categoryLabels[String(c.category)];
   const evidence=Array.isArray(c.evidence_for)?c.evidence_for.filter(isObject):[];
   const references=evidence.map(e=>e.reference).filter(isObject);
   const valid=Boolean(label)&&typeof c.statement==='string'&&(c.category!=='possible_data_artifact'||references.some(r=>safeLink(r.url)));
   const alternatives=Array.isArray(c.alternatives)?c.alternatives.filter(isObject):[];
+  const coinciding=Array.isArray(c.coinciding_explanations)?c.coinciding_explanations.filter(isObject).filter(e=>categoryLabels[String(e.category)]&&Array.isArray(e.evidence)):[];
+  const tied=coinciding.length>1,checked=record(checks);
   return <section className="mode2-conclusion" aria-label="Change interpretation">
     <p className="eyebrow">Mode 2 / evidence and alternatives</p>
-    <h3>{valid?label:'Interpretation unavailable'}</h3>
+    <h3>{valid?(tied?'Coinciding explanations':label):'Interpretation unavailable'}</h3>
     <p>{valid?c.statement as string:'The service has not returned a readable classification. No cause has been assigned.'}</p>
     {valid&&<>
-      {c.category==='possible_data_artifact'&&<References value={references}/>}
+      {tied?<div className="coinciding-grid" aria-label="Equally weighted explanations">{coinciding.map((explanation,i)=><article key={i}><Reasons title={categoryLabels[String(explanation.category)]} value={explanation.evidence}/></article>)}</div>:c.category==='possible_data_artifact'&&<References value={references}/>}
+      <DocumentedEvents value={c.known_events}/>
       <details className="classification-evidence"><summary>Evidence for, against and alternatives</summary><div className="reason-grid"><Reasons title="Supporting observations" value={c.evidence_for}/><Reasons title="Counter-evidence and gaps" value={c.evidence_against}/></div><h4>Other explanations</h4>{alternatives.length?alternatives.map((a,i)=><Reasons key={i} title={categoryLabels[String(a.category)]??'Unrecognised alternative'} value={a.evidence}/>):<p className="field-help">No alternatives returned. This does not rule out other causes.</p>}</details>
-      <details className="classification-method"><summary>How was this classified?</summary><p>{text(c.how_classified)}</p><p>Selected rule: {text(c.rule)}</p>{Array.isArray(c.rules_checked)&&<ul>{c.rules_checked.filter(isObject).map((r,i)=><li key={i}><strong>{text(r.rule)} · {r.applies===true?'Applies':r.applies===false?'Does not apply':'Not assessed'}</strong><p>{text(r.text)}</p>{typeof r.note==='string'&&<p>{r.note}</p>}</li>)}</ul>}<p>A category describes consistency with the available evidence. It is not proof of a cause or a probability.</p><details><summary>The four possible categories</summary><ul>{Object.values(categoryLabels).map(label=><li key={label}>{label}</li>)}</ul></details></details>
+      <details className="classification-method"><summary>How was this classified?</summary><p>{text(c.how_classified)}</p><p>{tied?'Compatibility rule retained by the API':'Selected rule'}: {text(c.rule)}</p>{typeof checked.list_version==='string'&&<><p>Checked against {number(checked.events_in_list)} documented events · {checked.list_version}</p>{Array.isArray(checked.match_rules)&&<ul>{checked.match_rules.filter(r=>typeof r==='string').map((rule,i)=><li key={i}>{String(rule)}</li>)}</ul>}</>}{Array.isArray(c.rules_checked)&&<ul>{c.rules_checked.filter(isObject).map((r,i)=><li key={i}><strong>{text(r.rule)} · {r.applies===true?'Applies':r.applies===false?'Does not apply':'Not assessed'}</strong><p>{text(r.text)}</p>{typeof r.note==='string'&&<p>{r.note}</p>}</li>)}</ul>}<p>A category describes consistency with the available evidence. It is not proof of a cause or a probability.</p><details><summary>The four possible categories</summary><ul>{Object.values(categoryLabels).map(label=><li key={label}>{label}</li>)}</ul></details></details>
     </>}
   </section>;
 }

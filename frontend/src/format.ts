@@ -16,3 +16,6 @@ export function timestamp(value: unknown): string {
   if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) return 'Not available';
   return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC' }).format(new Date(value)) + ' UTC';
 }
+
+/** Two significant figures for headlines only; scientific decisions keep API precision. */
+export const headlineSigned=(value:number):string=>`${value>0?'+':''}${new Intl.NumberFormat('en-US',{maximumSignificantDigits:2}).format(Object.is(value,-0)?0:value)}`;

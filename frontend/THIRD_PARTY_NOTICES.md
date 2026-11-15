@@ -4,6 +4,8 @@ Dependency inventory from `package-lock.json`, including transitive and optional
 
 | Package | Version | Use | Licence | Source |
 |---|---|---|---|---|
+| playwright | 1.65.1 | Local headless browser verification only | Apache-2.0 | [Source and licence](https://github.com/microsoft/playwright) |
+| playwright-core | 1.65.1 | Local headless browser verification only | Apache-2.0 | [Source and licence](https://github.com/microsoft/playwright) |
 | @babel/code-frame | 7.29.7 | Build / test only | MIT | [Package](https://www.npmjs.com/package/@babel/code-frame/v/7.29.7) |
 | @babel/helper-validator-identifier | 7.29.7 | Build / test only | MIT | [Package](https://www.npmjs.com/package/@babel/helper-validator-identifier/v/7.29.7) |
 | @babel/runtime | 7.29.14 | Build / test only | MIT | [Package](https://www.npmjs.com/package/@babel/runtime/v/7.29.14) |

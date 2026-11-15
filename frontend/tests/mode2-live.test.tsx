@@ -25,7 +25,7 @@ describe.runIf(Boolean(origin&&/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(or
     expect(screen.getByRole('region',{name:'EONET observation'})).toBeTruthy();
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(screen.getByText('How was this classified?')).toBeTruthy();
-    expect(screen.getAllByText(/No independent, documented source/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Checked against [0-9]+ documented events/)).toBeTruthy();
   },100000);
   it('keeps the trend first and renders a real cached MODIS series and passport',async()=>{
     const data=await load('modis-cached'),variables=parseVariables(await load('catalogue')),variable=variables.find(v=>v.variable_id==='ndvi')!;

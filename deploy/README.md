@@ -1,5 +1,8 @@
 # Deploying to Google Cloud (Cloud Run)
 
+> **The public instance now runs on Microsoft Azure** (team decision, 15 November 2026): see [`azure.md`](azure.md).
+> This Cloud Run guide stays as an alternative for the same container.
+
 This guide is self-contained. It starts from a clean Windows computer and ends with the public URL of the service. Nothing here needs Docker or Node on your computer: Google Cloud Build builds the container from the repository.
 
 > **Status:** written before the first deployment. The commands follow the Google Cloud documentation but have not yet been run against a real project. If a step fails, keep the full error message and send it to the team.

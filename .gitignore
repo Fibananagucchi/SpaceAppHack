@@ -60,3 +60,6 @@ tmp/
 Thumbs.db
 desktop.ini
 $RECYCLE.BIN/
+
+# Design mockups (not part of the product)
+frontend/_mockups/

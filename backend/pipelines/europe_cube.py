@@ -378,7 +378,8 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"comma-separated: {', '.join(PRODUCTS)}; or 'all'")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--limit", type=int, default=None, help="only the first N granules (testing)")
-    parser.add_argument("--with-maps", action="store_true", help="compute the Europe trend maps afterwards")
+    parser.add_argument("--with-maps", action="store_true",
+                        help="compute the Europe trend maps, the globe frames and the 1° globe trend afterwards")
     args = parser.parse_args(argv)
     if args.products.strip() == "all":
         keys = list(DEFAULT_ORDER) + ["omi_no2"]  # NO2 last: 7800 daily granules
@@ -392,6 +393,10 @@ def main(argv: list[str] | None = None) -> int:
         from backend.pipelines import europe_maps
         variables = sorted({vid for k in keys for vid in PRODUCTS[k].variables})
         code = europe_maps.main(["--variables", ",".join(variables)])
+        from backend.pipelines import europe_globe
+        code = europe_globe.main(["--variables", ",".join(variables)]) or code
+        from backend.pipelines import europe_globe_trend
+        code = europe_globe_trend.main(["--variables", ",".join(variables)]) or code
     return code
 
 

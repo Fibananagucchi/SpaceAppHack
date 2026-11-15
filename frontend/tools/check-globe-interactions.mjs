@@ -1,0 +1,46 @@
+/** Real integration against the project API. No fixture data are shown. */
+import {chromium} from 'playwright';
+import {mkdir,writeFile} from 'node:fs/promises';
+const out=new URL('../_mockups/globe-018/',import.meta.url);await mkdir(out,{recursive:true});
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000},locale:'uk-UA'});
+await context.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:8018/')?r.continue():r.abort());
+const page=await context.newPage(),errors=[],checks=[];
+page.on('pageerror',e=>errors.push(e.message));
+const shot=async name=>{await page.waitForTimeout(200);await page.screenshot({path:new URL(`${name}.png`,out).pathname.replace(/^\/(\w:)/,'$1'),fullPage:true});};
+const mark=text=>{checks.push(text);console.log(text);};
+const close=async()=>{if(await page.locator('dialog[open]').count())await page.keyboard.press('Escape');};
+const request=async(id,lat,lon,start,end)=>{
+  await close();await page.getByRole('button',{name:'Place & period ↗'}).click();await page.getByLabel('Variable',{exact:true}).selectOption(id);
+  await page.getByRole('dialog').getByRole('button',{name:'Point',exact:true}).click();
+  await page.getByLabel('Latitude',{exact:true}).fill(String(lat));await page.getByLabel('Longitude',{exact:true}).fill(String(lon));
+  if(start)await page.getByLabel('From',{exact:true}).fill(start);if(end)await page.getByLabel('To',{exact:true}).fill(end);
+  const response=page.waitForResponse(r=>r.url().endsWith('/api/v1/analyses')&&r.request().method()==='POST');await page.getByRole('button',{name:'Request analysis ↗',exact:true}).click();const r=await response,d=await r.json();
+  await page.waitForFunction(()=>Boolean(document.querySelector('.globe-conclusion')?.dataset.analysisId),{},{timeout:180000});
+  const result=await page.evaluate(async()=>fetch(`/api/v1/analyses/${document.querySelector('.globe-conclusion').dataset.analysisId}`).then(r=>r.json()));
+  if(result.request.variable_id!==id||result.request.location.lat!==lat||result.request.location.lon!==lon)throw Error('Selection result mismatch');
+  return result;
+};
+const pointOnGlobe=async(lat,lon)=>page.locator('.globe-points').evaluate(async(c,p)=>{
+  const {project}=await import('/src/globeGeometry.ts');const r=c.getBoundingClientRect(),v={lat:Number(c.dataset.centreLat),lon:Number(c.dataset.centreLon),radius:Number(c.dataset.radius),x:Number(c.dataset.centreX),y:Number(c.dataset.centreY)},q=project(p,v);if(q.z<0)throw Error('Target behind globe');return {x:q.x+r.left,y:q.y+r.top};
+},{lat,lon});
+await page.goto('http://127.0.0.1:8018/');await page.getByRole('button',{name:'Air temperature',exact:true}).waitFor();
+const airs=await request('airs_surface_air_temp',50.5,10.5);
+await page.locator('.annual-main').waitFor();
+const match=await page.evaluate(async annual=>{const {parseGlobeFrames,frameLayer}=await import('/src/globeData.ts');const {globeCell}=await import('/src/globeGeometry.ts');const f=parseGlobeFrames(await fetch('/api/v1/globe/europe/airs_surface_air_temp').then(r=>r.json()),'airs_surface_air_temp');const i=globeCell(frameLayer(f,0),{lat:50.5,lon:10.5});let max=0;for(let j=0;j<f.years.length;j++){const a=annual.points.find(p=>p.year===f.years[j])?.anomaly??null,b=f.frames[j][i];if((a===null)!==(b===null))throw Error('AIRS missing mask differs');if(a!==null)max=Math.max(max,Math.abs(a-b*f.scale));}return {max,scale:f.scale};},airs.series.annual);
+if(match.max>match.scale/2+1e-8)throw Error('AIRS values differ beyond encoding precision');mark('AIRS native annual values match real globe frames within quantization precision');
+const hash=()=>page.locator('.globe-points').evaluate(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let h=0;for(let i=0;i<d.length;i+=17)h=(h*31+d[i])>>>0;return h;});
+const before=await hash();await page.getByRole('button',{name:'Previous year',exact:true}).click();await page.waitForTimeout(100);if(await hash()===before)throw Error('Year did not recolour the canvas');mark('Year selection changes actual globe pixels');
+await request('t2m',50.45,30.52,'2000-01','2020-12');await page.getByText(/Neighbours hidden: different anomaly baseline/).waitFor();if(await page.locator('.annual-neighbour').count())throw Error('Different baselines were overlaid');mark('Restricted period hides neighbours with a different baseline');
+await request('precip',44.85,36.15,'1998-01','2025-09');await page.getByRole('button',{name:'Evidence ↗',exact:true}).click();await page.getByText('02 / Counter-directions · A ↔ B',{exact:true}).click();await page.getByRole('button',{name:'Find opposite signs',exact:true}).click();await page.getByRole('button',{name:'Compare both point records ↗',exact:true}).click();await page.locator('.paired-record .evidence-summary').nth(1).waitFor({timeout:60000});await shot('08-counter-directions');mark('A ↔ B loads two real native records from opposite-sign map cells');
+await close();await page.getByRole('button',{name:'Europe view',exact:true}).click();await page.getByRole('button',{name:'Area',exact:true}).click();
+const from=await pointOnGlobe(48,28),to=await pointOnGlobe(50,30),areaResponse=page.waitForResponse(r=>r.url().endsWith('/api/v1/analyses')&&r.request().method()==='POST');
+await page.mouse.move(from.x,from.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:8});await page.mouse.up();const area=await (await areaResponse).json();if(area.request?.location.type!=='area')throw Error('Drag did not request area');await page.locator('.card-numbers').waitFor({timeout:60000});await shot('09-area');mark('Dragging an area on the same globe returns a real area analysis');
+await page.getByRole('button',{name:'Point',exact:true}).click();await page.getByRole('button',{name:'Selected place',exact:true}).click();const canvas=page.locator('.globe-points');await canvas.focus();const old=await canvas.getAttribute('data-centre-lon');await page.keyboard.press('ArrowRight');if(await canvas.getAttribute('data-centre-lon')===old)throw Error('Keyboard rotation failed');await page.keyboard.press('Enter');await page.locator('.card-numbers').waitFor({timeout:60000});mark('Keyboard rotates the globe and Enter selects a real point');
+await request('t2m',40.7128,-74.006,'1980-01','2026-09');await page.getByText('No trend layer here · point analysis available',{exact:true}).waitFor();await page.locator('.annual-main').waitFor();if(await page.locator('.annual-neighbour').count())throw Error('Outside point has invented neighbours');await page.getByRole('button',{name:'Selected place',exact:true}).click();await shot('10-outside-europe');mark('Outside Europe uses real Giovanni annual series and neutral geography without neighbours');
+await request('precip',44.85,36.15,'1998-01','2025-09');await page.getByRole('button',{name:'Europe view',exact:true}).click();await page.getByRole('button',{name:'Check wider context ↗',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.globe-conclusion h1')?.textContent==='Possible data artifact',{},{timeout:120000});await shot('11-artifact');mark('Possible data artifact card uses backend conclusion and documentation');
+await page.getByRole('button',{name:/Inspect candidate from/}).click();await page.getByRole('dialog',{name:'Evidence',exact:true}).waitFor();if(!await page.locator('#change-disclosure').evaluate(d=>d.open))throw Error('Change seam did not open change evidence');await close();mark('Change seam opens the real change evidence');
+await request('ndvi',47.45,34.2,'2016-11','2026-10');await page.getByRole('button',{name:'Check wider context ↗',exact:true}).click();await page.waitForFunction(()=>Boolean(document.querySelector('.globe-conclusion .card-event')),{},{timeout:180000});await shot('12-documented-event');if(!await page.locator('.globe-conclusion .card-event a').count())throw Error('Documented event source missing');mark('Cached real MODIS record and documented event reach the conclusion card');
+await page.setViewportSize({width:390,height:844});await shot('13-mobile-event');if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Mobile overflow');
+if(errors.length)throw Error(errors.join('\n'));
+await writeFile(new URL('interactions.json',out),JSON.stringify({checks,pageErrors:errors,airsQuantization:match},null,2));await browser.close();console.log('All real interaction checks passed.');

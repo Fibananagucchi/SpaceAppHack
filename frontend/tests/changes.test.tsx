@@ -28,6 +28,7 @@ describe('Change seam and independent evidence',()=>{
   });
   it('links chart and list selection and switches to supplied segment fits',()=>{
     render(<AnalysisView variable={variable} state={{kind:'ready',warnings:[],result:payload,analysisId:payload.analysis_id}} />);
+    fireEvent.click(screen.getByText('Compare before / after fits',{selector:'summary'}));
     fireEvent.click(screen.getByRole('button',{name:'Before / after fits'}));
     expect(screen.getByText('Before / Sen fit',{selector:'span'})).toBeTruthy();
     expect(screen.getByText('After / Sen fit',{selector:'span'})).toBeTruthy();

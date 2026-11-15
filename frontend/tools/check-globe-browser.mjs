@@ -1,0 +1,64 @@
+/** Real localhost integration only: no generated observations or API mocks. */
+import {chromium} from 'playwright';
+import {mkdir,writeFile} from 'node:fs/promises';
+const output=new URL('../_mockups/globe-018/',import.meta.url);
+await mkdir(output,{recursive:true});
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000},locale:'uk-UA'});
+await context.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:8018/')?r.continue():r.abort());
+const page=await context.newPage(),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const shot=async name=>{await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.waitForTimeout(150);await page.screenshot({path:new URL(`${name}.png`,output).pathname.replace(/^\/(\w:)/,'$1'),fullPage:true});};
+await page.goto('http://127.0.0.1:8018/');
+await page.getByRole('button',{name:'Air temperature',exact:true}).waitFor();
+await page.waitForFunction(()=>document.querySelector('.globe-legend')?.textContent.includes('annual anomaly'));
+await shot('01-globe');
+console.log('Initial globe rendered.');
+const contracts=await page.evaluate(async()=>{
+  const {parseGlobeFrames}=await import('/src/globeData.ts');
+  const index=await fetch('/api/v1/globe/europe').then(r=>r.json());
+  const result=[];
+  for(const l of index.layers){const d=await fetch(`/api/v1/globe/europe/${l.variable_id}`).then(r=>r.json());const parsed=parseGlobeFrames(d,l.variable_id);result.push({variable:l.variable_id,years:parsed.years.length,minMonths:parsed.minValidMonths});}
+  return result;
+});
+await page.getByRole('button',{name:'Place & period ↗'}).click();
+await page.getByLabel('Latitude',{exact:true}).fill('50.45');
+await page.getByLabel('Longitude',{exact:true}).fill('30.52');
+await page.getByRole('button',{name:'Request analysis ↗',exact:true}).click();
+await page.locator('.globe-conclusion .card-numbers strong').waitFor({timeout:60000});
+await page.locator('.annual-main').waitFor({timeout:10000});
+await shot('02-record');
+await page.getByRole('button',{name:'Previous year',exact:true}).click();
+await page.getByRole('button',{name:'Play annual frames',exact:true}).click();
+await page.waitForTimeout(1100);
+await page.getByRole('button',{name:'Pause annual playback',exact:true}).click();
+console.log('Real annual record and Play rendered.');
+await page.getByRole('button',{name:'Evidence ↗',exact:true}).click();
+await page.getByRole('dialog',{name:'Evidence',exact:true}).waitFor();
+await shot('03-evidence');
+await page.keyboard.press('Escape');
+const check=page.getByRole('button',{name:'Check wider context ↗',exact:true});
+if(await check.count()){
+  await check.click();
+  await page.waitForFunction(()=>document.querySelector('.card-mode')?.textContent.includes('Mode 2'),{},{timeout:120000});
+  await shot('04-mode2');
+}
+await page.getByRole('button',{name:'Full-period trend',exact:true}).click();
+await page.waitForFunction(()=>document.querySelector('.globe-legend')?.textContent.includes('Sen trend'));
+if(!await page.getByRole('button',{name:'Play annual frames'}).isDisabled())throw Error('Play must be disabled for fixed trend layer');
+await shot('05-trend');
+await page.getByRole('button',{name:'Annual anomaly',exact:true}).click();
+await page.setViewportSize({width:390,height:844});
+await shot('06-mobile');
+if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Mobile horizontal overflow');
+await page.emulateMedia({reducedMotion:'reduce'});
+await page.waitForFunction(()=>document.querySelector('.play-button')?.disabled===true);
+if(!await page.getByRole('button',{name:'Play annual frames'}).isDisabled())throw Error('Reduced motion did not disable Play');
+await page.setViewportSize({width:1440,height:1000});
+await page.getByRole('button',{name:'NO₂',exact:true}).click();
+await page.waitForFunction(()=>document.querySelector('.globe-legend')?.textContent.includes('annual anomaly'));
+await shot('07-no2');
+if(errors.length)throw Error(errors.join('\n'));
+await writeFile(new URL('verification.json',output),JSON.stringify({contracts,pageErrors:errors,checks:['real frame contracts for seven variables','real native annual record','Play changes year','fixed trend disables Play','reduced motion disables Play','Evidence dialog and Escape','mobile no horizontal overflow']},null,2));
+await browser.close();
+console.log(JSON.stringify({contracts,pageErrors:errors}));

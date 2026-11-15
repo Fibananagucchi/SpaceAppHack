@@ -1,0 +1,20 @@
+# Render Blueprint: an optional FREE BACKUP of the same container (the main public instance runs on Azure,
+# see deploy/azure.md). Free web services on Render sleep after 15 minutes without traffic; the first request
+# after that waits about a minute. The filesystem is temporary, so the service runs on the prepared maps and
+# globe frames shipped in the image and on live NASA requests.
+#
+# Use: Render dashboard -> New -> Blueprint -> this repository. Render asks for EARTHDATA_TOKEN once
+# (sync: false = typed in the dashboard, never stored in this file). Render sets PORT itself; the image's
+# start command listens on it.
+services:
+  - type: web
+    name: trend-detective
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: EARTHDATA_TOKEN
+        sync: false
