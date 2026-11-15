@@ -1,4 +1,4 @@
-# Earth system trends frontend
+# Terra Anomaly and Trend Observatory (TATO) frontend
 
 Steps 1–5 provide real Europe trend maps for seven NASA variables, point and area
 analyses, monthly time series, trend evidence, data passports, Change seam, Time
@@ -444,3 +444,53 @@ marker coordinates and source documentation. Three screenshots and its small JSO
 record are in ignored `_mockups/changes-023/`. Reports are in `frontend/reports/`
 to respect the current frontend-only edit scope. Earlier full benchmark matrices,
 vision emulations and gallery helpers are historical; run them only if requested.
+
+
+## Layout, cases and startup (task 025)
+
+The conclusion and coverage key share a normal-flow sidebar. The Changes key
+collapses below 850 px viewport height; expanding it grows the layout instead of
+covering the answer. Layer controls and globe navigation form one toolbar stack.
+Hover coordinates, camera centre and colour scale share a second stack. The globe
+fits the desktop viewport even when the sidebar grows; the page can scroll for
+the timeline and expanded explanations. The header shows TATO below 1500 px and
+the full approved name when there is room; the document title includes both.
+
+A fresh visit requests Changes / 2025. If that default year lacks a real annual
+frame or mapped candidates, the last available shared year is shown with a notice.
+For the currently prepared ET layer this is 2024: there are no 2025 candidates.
+An explicitly selected empty year remains visible with its true zero-candidate
+state. Pending or unavailable Changes is labelled over its real annual background.
+
+Explore a case opens a source-backed selection and a new real analysis. Recipes
+in `src/assets/cases.json` contain selection metadata only, never observations or
+expected cause decisions. Event geometry and variable compatibility are resolved
+against `/known-events` and the variable catalogue. Kakhovka uses the documented
+approximate region as an area; regional point cases use its centre. Pinatubo uses
+a European temperature record within the documented global context. IMERG's map
+candidate stays separate from the native point result. The trend case has both
+native trend tests passing. Full selected records can find another date or no jump;
+nothing is tuned to force an event match.
+
+Demo links use `?case=` with these IDs:
+
+- `kakhovka-2023`, `imerg-2014`
+- `italy-2020`, `china-2020`, `usa-2020`
+- `heat-2003`, `heat-2010`, `drought-2018`, `drought-2022`
+- `pinatubo-1991`, `et-trend`
+
+Explicit `variable`, `layer=annual|trend|changes`, `year`, `lat` + `lon`,
+`bbox=west,south,east,north`, `start=YYYY-MM` and `end=YYYY-MM` override the recipe
+and defaults. For example, `?case=italy-2020&layer=trend&year=2018` changes the
+display while retaining the real record. Invalid parameters produce an explicit
+message. Back/forward reapplies the URL; a default visit can still resume its
+existing pending request. URL-supplied locations are labelled separately from the
+event's approximate region.
+
+Task validation used the build, 18 core tests, actual API records for all 11 cases,
+and one completed browser pass through every case plus 1280×640, 1280×720,
+1366×768 and 1920×1080. A small targeted URL check covers Back and coordinate
+provenance. There are three screenshots, no new gallery, FPS matrix or vision
+emulation. Real-response checks and raw API records are in ignored
+`_mockups/layout-025/`; the team report is `reports/025-codex.md` in this directory.
+No runtime dependency or source dataset was added.

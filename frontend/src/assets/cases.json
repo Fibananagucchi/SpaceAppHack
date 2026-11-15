@@ -1,0 +1,13 @@
+[
+  {"id":"kakhovka-2023","label":"Kakhovka, 2023","eventId":"kakhovka_dam_breach_2023","variable":"evapotranspiration","layer":"annual","year":2023,"location":"event_area"},
+  {"id":"imerg-2014","label":"IMERG, 2014","boundaryId":"imerg_v07_gpm_era","variable":"precip","layer":"changes","year":2014,"location":"point","point":{"lat":55,"lon":1}},
+  {"id":"italy-2020","label":"Northern Italy, 2020","eventId":"covid19_lockdown_northern_italy_2020","variable":"no2_tropo","layer":"annual","year":2020,"location":"event_centre"},
+  {"id":"china-2020","label":"China, 2020","eventId":"covid19_lockdown_china_2020","variable":"no2_tropo","layer":"changes","year":2020,"location":"event_centre"},
+  {"id":"usa-2020","label":"Northeastern US, 2020","eventId":"covid19_lockdown_us_northeast_2020","variable":"no2_tropo","layer":"annual","year":2020,"location":"event_centre"},
+  {"id":"heat-2003","label":"European heat wave, 2003","eventId":"european_heatwave_2003","variable":"t2m","layer":"annual","year":2003,"location":"event_centre"},
+  {"id":"heat-2010","label":"Russian heat wave, 2010","eventId":"russian_heatwave_2010","variable":"t2m","layer":"annual","year":2010,"location":"event_centre"},
+  {"id":"drought-2018","label":"European drought, 2018","eventId":"europe_heat_and_drought_2018","variable":"soil_moisture","layer":"changes","year":2018,"location":"event_centre"},
+  {"id":"drought-2022","label":"European drought, 2022","eventId":"europe_drought_2022","variable":"evapotranspiration","layer":"annual","year":2022,"location":"event_centre"},
+  {"id":"pinatubo-1991","label":"Pinatubo, 1991 · Europe record","eventId":"pinatubo_eruption_1991","variable":"t2m","layer":"annual","year":1991,"location":"point","point":{"lat":50.45,"lon":30.52}},
+  {"id":"et-trend","label":"Evapotranspiration over time","variable":"evapotranspiration","layer":"trend","year":2025,"location":"point","point":{"lat":50.45,"lon":30.52}}
+]

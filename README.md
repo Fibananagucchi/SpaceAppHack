@@ -1,7 +1,6 @@
-# Earth System Trend Detective
+# Terra Anomaly and Trend Observatory (TATO)
 
-_Working name. Built for the NASA Space Apps Challenge 2026 challenge
-"Be An Earth System Trend Detective!"._
+_Built for the NASA Space Apps Challenge 2026 challenge "Be An Earth System Trend Detective!"._
 
 Pick a place on Earth and one of nine NASA variables. The tool tells you, from real NASA data only:
 

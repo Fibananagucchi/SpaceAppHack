@@ -22,5 +22,5 @@ export function useGlobeChanges(variable:Variable|undefined,refresh:number) {
     }catch(e){if(!c.signal.aborted&&!isAbort(e))setResource(old=>old.data?{...old,notice:'Refresh failed · showing the last loaded changes.'}:{kind:'error',key:id,notice:worldReady?'World changes unavailable.':'Changes could not be loaded.'});}finally{checking=false;}};
     void check();const timer=setInterval(()=>void check(),20000),focus=()=>void check();window.addEventListener('focus',focus);document.addEventListener('visibilitychange',focus);return()=>{c.abort();clearInterval(timer);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',focus);};
   },[id,refresh,variable?.capabilities.map_europe]);
-  return {resource:resource.key===id?resource:{kind:'loading' as const,key:id},events:events.filter(e=>e.variables.includes(id)),eventsState};
+  return {allEvents:events,resource:resource.key===id?resource:{kind:'loading' as const,key:id},events:events.filter(e=>e.variables.includes(id)),eventsState};
 }
