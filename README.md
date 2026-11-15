@@ -109,7 +109,8 @@ everywhere else (Giovanni, Harmony); the prepared maps and globe frames still wo
   aggregated series as the trend layer. Detected and inconclusive changes carry their month, shift and category by the
   same ordered rules (documented product boundary, known event, or undetermined; both shown when they coincide). A mark
   is a candidate to inspect, not a finding: Pettitt p-values are not corrected for testing many cells, and the change
-  month is an estimate that can be off by a few months.
+  month is an estimate that can be off by a few months. The method looks for one lasting step over the whole record, so
+  short events (a heat wave, a drought year, a lockdown) show up as yearly anomalies rather than as a change.
 - **Wording:** always "consistent with", never "proven" (`never_proof: true` in every conclusion).
 
 ---

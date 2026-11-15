@@ -1,8 +1,9 @@
 import type {AnalysisRequest,Variable,ObjectValue} from './contract';
 
 export type GlobeMode='annual'|'trend'|'changes';
-export interface CaseRecipe {id:string;label:string;eventId?:string;boundaryId?:string;variable:string;layer:string;year:number;location:string;point?:{lat:number;lon:number}}
-export interface ExploreCase {id:string;label:string;eventId?:string;boundaryId?:string;layer:GlobeMode;year:number;request:AnalysisRequest;source?:ObjectValue;locationNote:string}
+/** note: short neutral line for a Changes case, e.g. "cell where a candidate matches the event" (a real changes-1 match). */
+export interface CaseRecipe {id:string;label:string;eventId?:string;boundaryId?:string;variable:string;layer:string;year:number;location:string;point?:{lat:number;lon:number};note?:string}
+export interface ExploreCase {id:string;label:string;eventId?:string;boundaryId?:string;layer:GlobeMode;year:number;request:AnalysisRequest;source?:ObjectValue;locationNote:string;note?:string}
 
 /** Selection recipes only. No observation, trend or cause is stored in a preset. */
 export function resolveCases(recipes:CaseRecipe[],variables:Variable[],events:ObjectValue[]):ExploreCase[] {
@@ -18,7 +19,8 @@ export function resolveCases(recipes:CaseRecipe[],variables:Variable[],events:Ob
     if(!location)return [];
     const boundary=r.boundaryId?v.product_boundaries?.find(b=>b.boundary_id===r.boundaryId):undefined;
     if(r.boundaryId&&!boundary)return [];
-    return [{id:r.id,label:r.label,eventId:r.eventId,boundaryId:r.boundaryId,layer:r.layer as GlobeMode,year:r.year,request:{variable_id:v.variable_id,location,period:{start:v.coverage.start,end:v.coverage.end}},source:event??boundary,locationNote:r.location==='event_area'?'Area from the source’s approximate region.':r.location==='event_centre'?'Point at the centre of the source’s approximate region.':area?.scope==='global'?'A European record within the documented global context.':'A source-checked point record.'}];
+    const note=typeof r.note==='string'&&r.note.trim()?r.note.trim():undefined;
+    return [{id:r.id,label:r.label,eventId:r.eventId,boundaryId:r.boundaryId,layer:r.layer as GlobeMode,year:r.year,note,request:{variable_id:v.variable_id,location,period:{start:v.coverage.start,end:v.coverage.end}},source:event??boundary,locationNote:note?`Map ${note}; the point analysis uses the native record and can differ.`:r.location==='event_area'?'Area from the source’s approximate region.':r.location==='event_centre'?'Point at the centre of the source’s approximate region.':area?.scope==='global'?'A European record within the documented global context.':'A source-checked point record.'}];
   });
 }
 export interface WorkspaceLink {caseId?:string;variable?:string;layer?:GlobeMode;year?:number;lat?:number;lon?:number;bbox?:[number,number,number,number];start?:string;end?:string;error?:string}
