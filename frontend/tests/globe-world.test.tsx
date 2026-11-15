@@ -4,7 +4,7 @@ import {act,renderHook,waitFor} from '@testing-library/react';
 import {displaySample,projectVisible} from '../src/globeLod';
 import type {GlobeLayer,GeoPoint} from '../src/globeGeometry';
 import {project} from '../src/globeGeometry';
-import {useGlobeData} from '../src/useGlobeData';
+import {clearGlobeCache,useGlobeData} from '../src/useGlobeData';
 import type {Variable} from '../src/contract';
 
 const world:GlobeLayer={domain:'world',rows:90,cols:180,lat0:-89,lon0:-179,dlat:2,dlon:2,values:[],unit:'test',limit:1,label:'Test grid'};
@@ -20,7 +20,7 @@ function fakeApi(worldFrames:boolean,worldTrend:()=>boolean,malformed=false,revi
     return new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
   });
 }
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.unstubAllGlobals();clearGlobeCache();});
 describe('Display detail and visible hemisphere',()=>{
   it('samples original world indices at overview, preserving the full grid at close zoom',()=>{const overview=displaySample(world,1),close=displaySample(world,8);expect(overview.indices.length).toBeLessThan(5000);expect(overview.step).toBe(2);expect(new Set(overview.indices).size).toBe(overview.indices.length);expect([...overview.indices].every(i=>i>=0&&i<16200)).toBe(true);expect(close.indices.length).toBe(16200);expect(close.indices[16199]).toBe(16199);});
   it('keeps the Europe-only 1° layer intact at overview',()=>{const sample=displaySample({...world,domain:'europe',rows:38,cols:70},1);expect(sample.step).toBe(1);expect(sample.indices.length).toBe(2660);});

@@ -1,0 +1,9 @@
+{
+  "name": "earth-system-trends-frontend-tools",
+  "private": true,
+  "type": "module",
+  "description": "Browser checks and capture scripts. Kept out of the app build: install with npm --prefix tools install.",
+  "devDependencies": {
+    "playwright": "1.65.1"
+  }
+}

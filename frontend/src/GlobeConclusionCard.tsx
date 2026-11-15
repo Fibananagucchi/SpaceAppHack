@@ -1,28 +1,201 @@
-import {finite,method,record,safeLink} from './analysis';
-import type {Variable,ViewState} from './contract';
-import type {useInvestigation} from './useInvestigation';
-import {coordinate,headlineSigned,month} from './format';
-import {categoryLabels,References} from './Mode2Conclusion';
-import {StatusNotice} from './StatusNotice';
-import {CategoryIcon} from './GlobeChangeEvidence';
-import {changeGroup} from './globeChanges';
-import type {ChangeCategory} from './globeChanges';
+import { finite, method, record, safeLink } from './analysis';
+import type { Variable, ViewState } from './contract';
+import type { useInvestigation } from './useInvestigation';
+import { coordinate, headlineSigned, month } from './format';
+import { categoryLabels, References } from './Mode2Conclusion';
+import { StatusNotice } from './StatusNotice';
+import { CategoryIcon } from './GlobeChangeEvidence';
+import { changeGroup } from './globeChanges';
+import type { ChangeCategory } from './globeChanges';
 
-export function ConclusionCard({state,variable,context,onContext,onEvidence,onChoose,onRetry}:{state:ViewState;variable?:Variable;context:ReturnType<typeof useInvestigation>;onContext:()=>void;onEvidence:()=>void;onChoose:()=>void;onRetry:()=>void}) {
-  const data=state.kind==='ready'?state.result:undefined,trend=method(data?.trend,'monthly_anomalies'),sen=record(trend.sen_slope),cp=record(record(data?.breaks).change_point),result=context.state.kind==='ready'&&context.state.result?.analysis_id===data?.analysis_id&&context.state.result?.change_id===cp.change_id?context.state.result:undefined;
-  const c=record(result?.conclusion),refs=Array.isArray(c.evidence_for)?c.evidence_for.map(v=>record(v).reference).filter(v=>safeLink(record(v).url)):[],valid=Boolean(categoryLabels[String(c.category)])&&typeof c.statement==='string'&&(c.category!=='possible_data_artifact'||refs.length>0),tied=Array.isArray(c.coinciding_explanations)&&c.coinciding_explanations.length>1;
-  const events=Array.isArray(c.known_events)?c.known_events.map(record).filter(e=>typeof e.title==='string'&&Array.isArray(e.sources)&&e.sources.some(s=>safeLink(record(s).url))):[],slope=sen.status==='ok'&&finite(sen.estimate)?sen.estimate:undefined;
-  const sentences:Record<string,string>={possible_data_artifact:'This jump may come from the data.',consistent_with_natural_event:'This jump fits a documented natural event.',consistent_with_human_influence:'This jump fits documented human influence.',cause_undetermined:'The cause of this jump is unclear.'};
-  const sentence=result?(valid?(tied?'Two explanations fit this jump.':sentences[String(c.category)]):'We could not read the explanation.'):slope===undefined?'A trend could not be estimated.':trend.agreement==='both_not_significant'?'No clear trend detected.':trend.agreement==='tests_disagree'?'The trend evidence is mixed.':`${variable?.label??'This record'} is ${slope>0?'increasing':slope<0?'decreasing':'showing no estimated change'}.`;
-  const location=state.request?.location,resolved=record(record(data?.location_resolved).grid_cell),eligible=Boolean(data&&cp.change_id&&['detected','inconclusive'].includes(String(cp.status))&&variable?.capabilities.investigation!=='not_available'),contextBusy=['loading','connecting','queued','running'].includes(context.state.kind);
-  return <section className="globe-conclusion" data-analysis-id={data?.analysis_id as string|undefined} data-context-id={result?.investigation_id as string|undefined} aria-label="Selected record conclusion"><p className="eyebrow">{variable?.label??'Earth observations'}{location&&<span> / {location.type==='point'?`${coordinate(location.lat)}°, ${coordinate(location.lon)}°`:'Selected area'}</span>}</p>
-    {state.kind==='idle'?<><h1>Pick a place.<br/>See what changed.</h1><button className="button button-primary" onClick={onChoose}>Choose a place ↗</button></>:data?<>
-      <div className="card-result-icon">{valid?<><CategoryIcon group={changeGroup(c.category as ChangeCategory)} label={categoryLabels[String(c.category)]}/>{tied&&<CategoryIcon group="event" label="A documented event also matches"/>}</>:<span role="img" aria-label={slope===undefined?'Estimate unavailable':slope>0?'Increasing':slope<0?'Decreasing':'No estimated change'}>{slope===undefined?'?':slope>0?'↗':slope<0?'↘':'→'}</span>}</div>
-      <h1>{cp.status==='inconclusive'&&result?sentence.replace('This jump','This possible jump').replace('this jump','this possible jump'):sentence}</h1><div className="card-numbers"><strong>{slope!==undefined?headlineSigned(slope):'—'}</strong><span>{typeof sen.unit==='string'?sen.unit:variable?.trend_unit}</span></div>
-      {events.length>0&&<button className="card-event-chip" onClick={onEvidence}><span aria-hidden="true">◇</span> {String(events[0].title)}{events.length>1?` +${events.length-1}`:''} ↗</button>}
-      <div className="card-actions"><button className="button button-primary" onClick={onEvidence}>Evidence ↗</button>{eligible&&!result&&<button className="text-button" disabled={contextBusy} onClick={onContext}>{contextBusy?'Checking context…':'Check wider context ↗'}</button>}</div>
-      <details className="card-record-details"><summary>Record details</summary><p>{month(record(data.analysis_period).start)} — {month(record(data.analysis_period).end)}</p><p>{result?'Native point interpretation':'Native record trend'} · {String(trend.agreement??'Evidence unavailable').replaceAll('_',' ')}</p>{location?.type==='point'&&<details className="card-grid"><summary>Resolved grid cell centre</summary><p>{finite(resolved.center_lat)&&finite(resolved.center_lon)?`${coordinate(resolved.center_lat)}°, ${coordinate(resolved.center_lon)}°`:'Unavailable'}</p></details>}{valid&&<><p>{String(c.statement)}</p><References value={refs}/></>}<p>{result?'A contextual match is not proof of a cause.':'A fitted trend does not identify a cause.'}</p></details>
-      {context.state.kind!=='idle'&&context.state.kind!=='ready'&&!contextBusy&&<p className="field-help">Context unavailable. <button className="text-button" onClick={onEvidence}>Inspect or retry ↗</button></p>}
-    </>:<><StatusNotice state={state} onRetry={onRetry}/><button className="text-button" onClick={onEvidence}>Request details ↗</button></>}
-  </section>;
+/** The card headline speaks in years ("+0.13 mm/month per year"); the Evidence drawer keeps the API's per-decade rate. */
+export function perYear(value: number | undefined, unit: string | undefined): { value?: number; unit?: string } {
+  if (unit && / per decade$/.test(unit))
+    return { value: value === undefined ? undefined : value / 10, unit: unit.replace(/ per decade$/, ' per year') };
+  return { value, unit };
+}
+
+export function ConclusionCard({
+  state,
+  variable,
+  context,
+  onContext,
+  onEvidence,
+  onChoose,
+  onRetry,
+}: {
+  state: ViewState;
+  variable?: Variable;
+  context: ReturnType<typeof useInvestigation>;
+  onContext: () => void;
+  onEvidence: () => void;
+  onChoose: () => void;
+  onRetry: () => void;
+}) {
+  const data = state.kind === 'ready' ? state.result : undefined,
+    trend = method(data?.trend, 'monthly_anomalies'),
+    sen = record(trend.sen_slope),
+    cp = record(record(data?.breaks).change_point),
+    result =
+      context.state.kind === 'ready' &&
+      context.state.result?.analysis_id === data?.analysis_id &&
+      context.state.result?.change_id === cp.change_id
+        ? context.state.result
+        : undefined;
+  const c = record(result?.conclusion),
+    refs = Array.isArray(c.evidence_for) ? c.evidence_for.map((v) => record(v).reference).filter((v) => safeLink(record(v).url)) : [],
+    valid =
+      Boolean(categoryLabels[String(c.category)]) &&
+      typeof c.statement === 'string' &&
+      (c.category !== 'possible_data_artifact' || refs.length > 0),
+    tied = Array.isArray(c.coinciding_explanations) && c.coinciding_explanations.length > 1;
+  const events = Array.isArray(c.known_events)
+      ? c.known_events
+          .map(record)
+          .filter((e) => typeof e.title === 'string' && Array.isArray(e.sources) && e.sources.some((s) => safeLink(record(s).url)))
+      : [],
+    slope = sen.status === 'ok' && finite(sen.estimate) ? sen.estimate : undefined;
+  const headlineRate = perYear(slope, typeof sen.unit === 'string' ? sen.unit : variable?.trend_unit);
+  const sentences: Record<string, string> = {
+    possible_data_artifact: 'This jump may come from the data.',
+    consistent_with_natural_event: 'This jump fits a documented natural event.',
+    consistent_with_human_influence: 'This jump fits documented human influence.',
+    cause_undetermined: 'The cause of this jump is unclear.',
+  };
+  const sentence = result
+    ? valid
+      ? tied
+        ? 'Two explanations fit this jump.'
+        : sentences[String(c.category)]
+      : 'We could not read the explanation.'
+    : slope === undefined
+      ? 'A trend could not be estimated.'
+      : trend.agreement === 'both_not_significant'
+        ? 'No clear trend detected.'
+        : trend.agreement === 'tests_disagree'
+          ? 'The trend evidence is mixed.'
+          : `${variable?.label ?? 'This record'} is ${slope > 0 ? 'increasing' : slope < 0 ? 'decreasing' : 'showing no estimated change'}.`;
+  const location = state.request?.location,
+    resolved = record(record(data?.location_resolved).grid_cell),
+    eligible = Boolean(
+      data &&
+        cp.change_id &&
+        ['detected', 'inconclusive'].includes(String(cp.status)) &&
+        variable?.capabilities.investigation !== 'not_available',
+    ),
+    contextBusy = ['loading', 'connecting', 'queued', 'running'].includes(context.state.kind);
+  return (
+    <section
+      className="globe-conclusion"
+      data-analysis-id={data?.analysis_id as string | undefined}
+      data-context-id={result?.investigation_id as string | undefined}
+      aria-label="Selected record conclusion"
+    >
+      <p className="eyebrow">
+        {variable?.label ?? 'Earth observations'}
+        {location && (
+          <span> / {location.type === 'point' ? `${coordinate(location.lat)}°, ${coordinate(location.lon)}°` : 'Selected area'}</span>
+        )}
+      </p>
+      {state.kind === 'idle' ? (
+        <>
+          <h1>
+            Pick a place.
+            <br />
+            See what changed.
+          </h1>
+          <button className="button button-primary" onClick={onChoose}>
+            Choose a place ↗
+          </button>
+        </>
+      ) : data ? (
+        <>
+          <div className="card-result-icon">
+            {valid ? (
+              <>
+                <CategoryIcon group={changeGroup(c.category as ChangeCategory)} label={categoryLabels[String(c.category)]} />
+                {tied && <CategoryIcon group="event" label="A documented event also matches" />}
+              </>
+            ) : (
+              <span
+                role="img"
+                aria-label={
+                  slope === undefined ? 'Estimate unavailable' : slope > 0 ? 'Increasing' : slope < 0 ? 'Decreasing' : 'No estimated change'
+                }
+              >
+                {slope === undefined ? '?' : slope > 0 ? '↗' : slope < 0 ? '↘' : '→'}
+              </span>
+            )}
+          </div>
+          <h1>
+            {cp.status === 'inconclusive' && result
+              ? sentence.replace('This jump', 'This possible jump').replace('this jump', 'this possible jump')
+              : sentence}
+          </h1>
+          <div className="card-numbers">
+            <strong>{headlineRate.value !== undefined ? headlineSigned(headlineRate.value) : '—'}</strong>
+            <span>{headlineRate.unit}</span>
+          </div>
+          {events.length > 0 && (
+            <button className="card-event-chip" onClick={onEvidence}>
+              <span aria-hidden="true">◇</span> {String(events[0].title)}
+              {events.length > 1 ? ` +${events.length - 1}` : ''} ↗
+            </button>
+          )}
+          <div className="card-actions">
+            <button className="button button-primary" onClick={onEvidence}>
+              Evidence ↗
+            </button>
+            {eligible && !result && (
+              <button className="text-button" disabled={contextBusy} onClick={onContext}>
+                {contextBusy ? 'Checking context…' : 'Check wider context ↗'}
+              </button>
+            )}
+          </div>
+          <details className="card-record-details">
+            <summary>Record details</summary>
+            <p>
+              {month(record(data.analysis_period).start)} — {month(record(data.analysis_period).end)}
+            </p>
+            <p>
+              {result ? 'Native point interpretation' : 'Native record trend'} ·{' '}
+              {String(trend.agreement ?? 'Evidence unavailable').replaceAll('_', ' ')}
+            </p>
+            {location?.type === 'point' && (
+              <details className="card-grid">
+                <summary>Resolved grid cell centre</summary>
+                <p>
+                  {finite(resolved.center_lat) && finite(resolved.center_lon)
+                    ? `${coordinate(resolved.center_lat)}°, ${coordinate(resolved.center_lon)}°`
+                    : 'Unavailable'}
+                </p>
+              </details>
+            )}
+            {valid && (
+              <>
+                <p>{String(c.statement)}</p>
+                <References value={refs} />
+              </>
+            )}
+            <p>{result ? 'A contextual match is not proof of a cause.' : 'A fitted trend does not identify a cause.'}</p>
+          </details>
+          {context.state.kind !== 'idle' && context.state.kind !== 'ready' && !contextBusy && (
+            <p className="field-help">
+              Context unavailable.{' '}
+              <button className="text-button" onClick={onEvidence}>
+                Inspect or retry ↗
+              </button>
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <StatusNotice state={state} onRetry={onRetry} />
+          <button className="text-button" onClick={onEvidence}>
+            Request details ↗
+          </button>
+        </>
+      )}
+    </section>
+  );
 }

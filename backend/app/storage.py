@@ -13,11 +13,16 @@ Layout (same locally and on the Cloud Storage bucket mounted on Cloud Run):
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import os
 import tempfile
+import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from .catalog import CORE_VARIABLE_IDS
 
@@ -51,20 +56,20 @@ def map_path(data_dir: Path, variable_id: str) -> Path:
 
 
 def read_map(data_dir: Path, prepared_dir: Path | None, variable_id: str) -> dict[str, Any] | None:
-    """Map from DATA_DIR (fresh, written by the pipeline) or, if absent, the prepared copy shipped in the image."""
-    fresh = read_json(map_path(data_dir, variable_id))
-    if fresh and fresh.get("status") == "ok":
+    """Metadata of the Europe map (map-1.2) from DATA_DIR (fresh) or the prepared copy shipped in the image.
+
+    Only the small top-level fields are returned; the full body is served from :func:`read_map_entry`.
+    """
+    entry = read_map_entry(data_dir, prepared_dir, variable_id)
+    return entry.meta if entry else None
+
+
+def read_map_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str) -> "LayerEntry | None":
+    fresh = _cached(map_path(data_dir, variable_id), gz=False)
+    if fresh is not None:
         return fresh
     if prepared_dir is not None:
-        packed = Path(prepared_dir) / "maps" / "europe" / f"{variable_id}.json.gz"
-        try:
-            with gzip.open(packed, "rt", encoding="utf-8") as f:
-                prepared = json.load(f)
-            if prepared.get("status") == "ok":
-                prepared.setdefault("provenance", {})["served_from"] = "prepared_copy_in_image"
-                return prepared
-        except (FileNotFoundError, OSError, json.JSONDecodeError):
-            return None
+        return _cached(Path(prepared_dir) / "maps" / "europe" / f"{variable_id}.json.gz", gz=True)
     return None
 
 
@@ -80,20 +85,46 @@ def globe_changes_path(data_dir: Path, variable_id: str, domain: str = "europe")
     return Path(data_dir) / "globe" / domain / "changes" / f"{variable_id}.json"
 
 
-# path -> [mtime, payload, serialised bytes, gzip bytes or None]; the gzip copy belongs to that exact file version
-_GLOBE_CACHE: dict[str, list[Any]] = {}
 GLOBE_KINDS = ("frames", "trend", "changes")
+# Fields with one value per cell: never kept as Python objects, only inside the compressed body.
+_BULK_KEYS = frozenset({"frames", "cell_sd", "cell_status", "cells", "changes"})
+MISSING = int(np.iinfo(np.int32).min)   # sentinel for a null frame value in the strip arrays
 
 
-def _cached(path: Path, gz: bool) -> list[Any] | None:
-    """Parsed JSON and its serialised bytes, re-read only when the file changes."""
-    try:
-        mtime = path.stat().st_mtime
-    except OSError:
-        return None
-    hit = _GLOBE_CACHE.get(str(path))
-    if hit and hit[0] == mtime:
-        return hit
+@dataclass
+class LayerEntry:
+    """One prepared layer file, read once per file version.
+
+    ``meta`` holds the small top-level fields only. The body is kept once, gzip-compressed (Brotli or a binary
+    encoding were measured on the world layers: only 8-20 % smaller after compression, so not used). Frames
+    also keep compact integer arrays for the time strip.
+    """
+    version: tuple[int, int]
+    meta: dict[str, Any]
+    gz: bytes
+    etag: str
+    frames: np.ndarray | None = None        # int32 (years, cells), MISSING = null
+    cell_status: np.ndarray | None = None   # int16 (cells,)
+
+    def body(self, accept_encoding: str) -> tuple[bytes, str | None]:
+        """The body in the best encoding the client accepts: (bytes, Content-Encoding or None)."""
+        accepted = {part.split(";")[0].strip().lower() for part in accept_encoding.split(",")}
+        if "gzip" in accepted:
+            return self.gz, "gzip"
+        return gzip.decompress(self.gz), None
+
+
+_LAYER_CACHE: dict[str, LayerEntry] = {}
+_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for(key: str) -> threading.Lock:
+    with _LOCKS_GUARD:
+        return _LOCKS.setdefault(key, threading.Lock())
+
+
+def _load(path: Path, gz: bool, version: tuple[int, int]) -> LayerEntry | None:
     try:
         if gz:
             with gzip.open(path, "rt", encoding="utf-8") as f:
@@ -101,19 +132,50 @@ def _cached(path: Path, gz: bool) -> list[Any] | None:
         else:
             with open(path, encoding="utf-8") as f:
                 payload = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, EOFError, json.JSONDecodeError):
         return None
-    if payload.get("status") != "ok":
+    if not isinstance(payload, dict) or payload.get("status") != "ok":
         return None
     payload.setdefault("provenance", {})["served_from"] = "prepared_copy_in_image" if gz else "data_dir"
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    entry = [mtime, payload, body, None]
-    _GLOBE_CACHE[str(path)] = entry
-    return entry
+    packed = gzip.compress(body, compresslevel=6, mtime=0)
+    frames = cell_status = None
+    if isinstance(payload.get("frames"), list) and isinstance(payload.get("cell_status"), list):
+        frames = np.array([[MISSING if v is None else v for v in frame] for frame in payload["frames"]],
+                          dtype=np.int32).reshape(len(payload["frames"]), -1)
+        cell_status = np.asarray(payload["cell_status"], dtype=np.int16)
+    meta = {k: v for k, v in payload.items() if k not in _BULK_KEYS}
+    etag = '"' + hashlib.sha1(body).hexdigest()[:20] + '"'
+    return LayerEntry(version, meta, packed, etag, frames, cell_status)
 
 
-def _globe_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str,
-                 domain: str = "europe") -> list[Any] | None:
+def _cached(path: Path, gz: bool) -> LayerEntry | None:
+    """The layer of ``path``, re-read only when the file changes (thread-safe, one reader per file)."""
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    version = (st.st_mtime_ns, st.st_size)
+    key = str(path)
+    hit = _LAYER_CACHE.get(key)
+    if hit is not None and hit.version == version:
+        return hit
+    with _lock_for(key):
+        hit = _LAYER_CACHE.get(key)
+        if hit is not None and hit.version == version:
+            return hit
+        entry = _load(path, gz, version)
+        if entry is None:
+            _LAYER_CACHE.pop(key, None)
+            return None
+        _LAYER_CACHE[key] = entry
+        return entry
+
+
+def globe_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str = "frames",
+                domain: str = "europe") -> LayerEntry | None:
+    """Globe frames (globe-1), trend (map-1.2) or changes (changes-1) of a domain from DATA_DIR (fresh) or,
+    if absent, the prepared copy shipped in the image. Read-only: callers must not modify the entry."""
     fresh_path = {"frames": globe_path, "trend": globe_trend_path,
                   "changes": globe_changes_path}[kind](data_dir, variable_id, domain)
     fresh = _cached(fresh_path, gz=False)
@@ -129,23 +191,20 @@ def _globe_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str, ki
 
 def read_globe(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str = "frames",
                domain: str = "europe") -> dict[str, Any] | None:
-    """Globe frames (globe-1) or the trend layer (map-1.2) of a domain from DATA_DIR (fresh) or, if absent,
-    the prepared copy shipped in the image. Read-only: callers must not modify the returned payload."""
-    entry = _globe_entry(data_dir, prepared_dir, variable_id, kind, domain)
-    return entry[1] if entry else None
+    """Small top-level fields of a globe layer (status, unit, years, period, computed_at, provenance, ...)."""
+    entry = globe_entry(data_dir, prepared_dir, variable_id, kind, domain)
+    return entry.meta if entry else None
 
 
-def read_globe_bytes(data_dir: Path, prepared_dir: Path | None, variable_id: str, gzipped: bool = False,
-                     kind: str = "frames", domain: str = "europe") -> bytes | None:
-    """The same payload already serialised; optionally gzip-compressed once per file version and cached."""
-    entry = _globe_entry(data_dir, prepared_dir, variable_id, kind, domain)
-    if entry is None:
-        return None
-    if not gzipped:
-        return entry[2]
-    if entry[3] is None:
-        entry[3] = gzip.compress(entry[2], compresslevel=6)
-    return entry[3]
+def warm_cache(data_dir: Path, prepared_dir: Path | None) -> int:
+    """Read every prepared layer once (called in a worker thread at start-up). Returns the number of layers."""
+    count = 0
+    for vid in CORE_VARIABLE_IDS:
+        count += read_map_entry(data_dir, prepared_dir, vid) is not None
+        for domain in DOMAINS:
+            for kind in GLOBE_KINDS:
+                count += globe_entry(data_dir, prepared_dir, vid, kind, domain) is not None
+    return count
 
 
 def read_json(path: Path) -> dict[str, Any] | None:

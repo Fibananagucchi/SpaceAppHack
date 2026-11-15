@@ -1,15 +1,146 @@
-import {useState} from 'react';
-import type {AnalysisRequest} from './contract';
-import {cellLocation,cellState,oppositePair} from './trendMap';
-import type {TrendMap} from './trendMap';
-import type {GeoPoint} from './globeGeometry';
-import {coordinate,month,pValue,signed} from './format';
-import {PairRecord} from './EuropeMap';
+import { useState } from 'react';
+import type { AnalysisRequest } from './contract';
+import { cellLocation, cellState, oppositePair } from './trendMap';
+import type { TrendMap } from './trendMap';
+import type { GeoPoint } from './globeGeometry';
+import { coordinate, month, pValue, signed } from './format';
+import { PairRecord } from './EuropeMap';
 
-export function GlobeCounterDirections({map,a,b,pointA,pointB,slot,onChooseSlot,onPair,onOpen}:{map?:TrendMap;a?:number;b?:number;pointA?:GeoPoint;pointB?:GeoPoint;slot:'A'|'B'|undefined;onChooseSlot:(slot:'A'|'B'|undefined)=>void;onPair:(a:number,b:number)=>void;onOpen:(request:AnalysisRequest)=>void}) {
-  const [compare,setCompare]=useState(false),[message,setMessage]=useState('');
-  const location=(i:number,label:string)=>(label==='A'?pointA:pointB)??cellLocation(map!,i);
-  const request=(i:number,label:string):AnalysisRequest=>({variable_id:map!.variableId,location:{type:'point',...location(i,label)},period:{start:map!.start,end:map!.end}});
-  const card=(i:number|undefined,label:string)=>{if(!map||i===undefined)return <article className="counter-card"><h4>{label}</h4><p>Choose a cell on the globe.</p></article>;const p=location(i,label);return <article className="counter-card"><h4>{label} / {coordinate(p.lat)}°, {coordinate(p.lon)}°</h4><p className="map-rate">{cellState(map,i)==='ok'?`${signed(map.slope[i]!)} ${map.unit}`:cellState(map,i).replaceAll('_',' ')}</p>{cellState(map,i)==='ok'&&<p className="field-help">{map.significant[i]?'Passes map FDR':'Does not pass map FDR'} · q = {pValue(map.q[i])}</p>}<button className="text-button" onClick={()=>onOpen(request(i,label))}>Open native point {label} ↗</button></article>;};
-  return <details className="globe-counter" onToggle={e=>{if(!e.currentTarget.open){onChooseSlot(undefined);setCompare(false);}}}><summary>02 / Counter-directions · A ↔ B</summary>{map?<><p className="field-help">{map.dlat}° aggregated globe cells · {month(map.start)} — {month(map.end)}. Map rates are {map.dlat}° spatial averages. Manually chosen points keep the exact click coordinates; native records can differ.</p><div className="counter-controls"><button aria-pressed={slot==='A'} onClick={()=>onChooseSlot(slot==='A'?undefined:'A')}>Pick A on globe</button><button aria-pressed={slot==='B'} onClick={()=>onChooseSlot(slot==='B'?undefined:'B')}>Pick B on globe</button><button onClick={()=>{const pair=oppositePair(map);setCompare(false);if(pair){onPair(...pair);setMessage('Strongest negative and positive map rates passing FDR selected. This is not a representative sample.');}else setMessage('No opposite-sign pair passes map FDR for this variable.');}}>Find opposite signs</button></div>{slot&&<p role="status">Close Evidence, then choose {slot} on the same globe.</p>}{message&&<p className="field-help" role="status">{message}</p>}<div className="counter-grid">{card(a,'A')}{card(b,'B')}</div>{a!==undefined&&b!==undefined&&cellState(map,a)==='ok'&&cellState(map,b)==='ok'&&<><p className="field-help">{map.slope[a]!*map.slope[b]!<0?'Opposite signs.':'These signs are not opposite.'} Direction alone does not establish a cause.</p><button className="button" onClick={()=>setCompare(v=>!v)}>{compare?'Close point comparison':'Compare both point records ↗'}</button>{compare&&<div className="paired-grid"><PairRecord key={`A-${map.variableId}-${a}-${JSON.stringify(pointA)}`} label="A" request={request(a,'A')} onOpen={onOpen}/><PairRecord key={`B-${map.variableId}-${b}-${JSON.stringify(pointB)}`} label="B" request={request(b,'B')} onOpen={onOpen}/></div>}</>}</>:<p>No trend grid available for this product. No comparison has been substituted.</p>}</details>;
+export function GlobeCounterDirections({
+  map,
+  a,
+  b,
+  pointA,
+  pointB,
+  slot,
+  onChooseSlot,
+  onPair,
+  onOpen,
+}: {
+  map?: TrendMap;
+  a?: number;
+  b?: number;
+  pointA?: GeoPoint;
+  pointB?: GeoPoint;
+  slot: 'A' | 'B' | undefined;
+  onChooseSlot: (slot: 'A' | 'B' | undefined) => void;
+  onPair: (a: number, b: number) => void;
+  onOpen: (request: AnalysisRequest) => void;
+}) {
+  const [compare, setCompare] = useState(false),
+    [message, setMessage] = useState('');
+  const location = (i: number, label: string) => (label === 'A' ? pointA : pointB) ?? cellLocation(map!, i);
+  const request = (i: number, label: string): AnalysisRequest => ({
+    variable_id: map!.variableId,
+    location: { type: 'point', ...location(i, label) },
+    period: { start: map!.start, end: map!.end },
+  });
+  const card = (i: number | undefined, label: string) => {
+    if (!map || i === undefined)
+      return (
+        <article className="counter-card">
+          <h4>{label}</h4>
+          <p>Choose a cell on the globe.</p>
+        </article>
+      );
+    const p = location(i, label);
+    return (
+      <article className="counter-card">
+        <h4>
+          {label} / {coordinate(p.lat)}°, {coordinate(p.lon)}°
+        </h4>
+        <p className="map-rate">
+          {cellState(map, i) === 'ok' ? `${signed(map.slope[i]!)} ${map.unit}` : cellState(map, i).replaceAll('_', ' ')}
+        </p>
+        {cellState(map, i) === 'ok' && (
+          <p className="field-help">
+            {map.significant[i] ? 'Passes map FDR' : 'Does not pass map FDR'} · q = {pValue(map.q[i])}
+          </p>
+        )}
+        <button className="text-button" onClick={() => onOpen(request(i, label))}>
+          Open native point {label} ↗
+        </button>
+      </article>
+    );
+  };
+  return (
+    <details
+      className="globe-counter"
+      onToggle={(e) => {
+        if (!e.currentTarget.open) {
+          onChooseSlot(undefined);
+          setCompare(false);
+        }
+      }}
+    >
+      <summary>02 / Counter-directions · A ↔ B</summary>
+      {map ? (
+        <>
+          <p className="field-help">
+            {map.dlat}° aggregated globe cells · {month(map.start)} — {month(map.end)}. Map rates are {map.dlat}° spatial averages. Manually
+            chosen points keep the exact click coordinates; native records can differ.
+          </p>
+          <div className="counter-controls">
+            <button aria-pressed={slot === 'A'} onClick={() => onChooseSlot(slot === 'A' ? undefined : 'A')}>
+              Pick A on globe
+            </button>
+            <button aria-pressed={slot === 'B'} onClick={() => onChooseSlot(slot === 'B' ? undefined : 'B')}>
+              Pick B on globe
+            </button>
+            <button
+              onClick={() => {
+                const pair = oppositePair(map);
+                setCompare(false);
+                if (pair) {
+                  onPair(...pair);
+                  setMessage('Strongest negative and positive map rates passing FDR selected. This is not a representative sample.');
+                } else setMessage('No opposite-sign pair passes map FDR for this variable.');
+              }}
+            >
+              Find opposite signs
+            </button>
+          </div>
+          {slot && <p role="status">Close Evidence, then choose {slot} on the same globe.</p>}
+          {message && (
+            <p className="field-help" role="status">
+              {message}
+            </p>
+          )}
+          <div className="counter-grid">
+            {card(a, 'A')}
+            {card(b, 'B')}
+          </div>
+          {a !== undefined && b !== undefined && cellState(map, a) === 'ok' && cellState(map, b) === 'ok' && (
+            <>
+              <p className="field-help">
+                {map.slope[a]! * map.slope[b]! < 0 ? 'Opposite signs.' : 'These signs are not opposite.'} Direction alone does not establish
+                a cause.
+              </p>
+              <button className="button" onClick={() => setCompare((v) => !v)}>
+                {compare ? 'Close point comparison' : 'Compare both point records ↗'}
+              </button>
+              {compare && (
+                <div className="paired-grid">
+                  <PairRecord
+                    key={`A-${map.variableId}-${a}-${JSON.stringify(pointA)}`}
+                    label="A"
+                    request={request(a, 'A')}
+                    onOpen={onOpen}
+                  />
+                  <PairRecord
+                    key={`B-${map.variableId}-${b}-${JSON.stringify(pointB)}`}
+                    label="B"
+                    request={request(b, 'B')}
+                    onOpen={onOpen}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        <p>No trend grid available for this product. No comparison has been substituted.</p>
+      )}
+    </details>
+  );
 }

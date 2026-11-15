@@ -14,7 +14,7 @@ from typing import Any
 
 from . import catalog
 from .config import Settings
-from .storage import DOMAINS, EUROPE_BBOX, GLOBE_GRID, read_globe
+from .storage import DOMAINS, EUROPE_BBOX, GLOBE_GRID, MISSING, globe_entry, read_globe
 
 MAX_RING = 2
 GRID_ORDER = "row-major, row 0 = southernmost latitude, column 0 = westernmost longitude"
@@ -30,7 +30,7 @@ def _layer_state(settings: Settings, vid: str, domain: str) -> dict[str, Any]:
                     "served_from": frames["provenance"].get("served_from"), "computed_at": frames.get("computed_at")}
                    if frames is not None else {"status": "not_ready", "reason": "not_computed"}),
         "trend": ({"status": "ok", "period": trend["period"], "unit": trend["unit"],
-                   "served_from": trend["provenance"].get("served_from")}
+                   "served_from": trend["provenance"].get("served_from"), "computed_at": trend.get("computed_at")}
                   if trend is not None else {"status": "not_ready", "reason": "not_computed"}),
         "changes": ({"status": "ok", "period": changes["period"], "counts": changes["counts"],
                      "computed_at": changes.get("computed_at"), "served_from": changes["provenance"].get("served_from")}
@@ -86,10 +86,11 @@ def strip(settings: Settings, variable_id: str, lat: float, lon: float, ring: in
         return {"status": "not_available", "reason": "outside_globe_layer", "variable_id": variable_id,
                 "requested": requested,
                 "note": "No globe layer here; the time strip uses series.annual of the point analysis."}
-    payload = read_globe(settings.data_dir, settings.prepared_dir, variable_id, domain=domain)
-    if payload is None:
+    entry = globe_entry(settings.data_dir, settings.prepared_dir, variable_id, domain=domain)
+    if entry is None or entry.frames is None:
         return {"status": "not_ready", "reason": "not_computed", "variable_id": variable_id, "requested": requested}
 
+    payload = entry.meta
     grid = payload["grid"]
     nrow, ncol = grid["shape"]
     west, south = DOMAINS[domain]["bbox"][0], DOMAINS[domain]["bbox"][1]
@@ -97,15 +98,15 @@ def strip(settings: Settings, variable_id: str, lat: float, lon: float, ring: in
     col = min(ncol - 1, max(0, math.floor((lon - west) / grid["dlon"])))
     wraps = domain == "world"                                # longitude is cyclic on the whole globe
     scale, decimals = payload["encoding"]["scale"], payload["encoding"]["decimals"]
-    frames, cell_status, codes = payload["frames"], payload["cell_status"], payload["status_codes"]
+    frames, cell_status, codes = entry.frames, entry.cell_status, payload["status_codes"]
     size = f"{grid['dlat']:g}°"
 
     def cell(r: int, c: int, distance: int) -> dict[str, Any]:
         k = r * ncol + c
         return {"center_lat": round(grid["lat0"] + r * grid["dlat"], 4),
                 "center_lon": round(grid["lon0"] + c * grid["dlon"], 4),
-                "ring": distance, "status": codes[str(cell_status[k])],
-                "values": [_decode(frame[k], scale, decimals) for frame in frames]}
+                "ring": distance, "status": codes[str(int(cell_status[k]))],
+                "values": [_decode(None if v == MISSING else int(v), scale, decimals) for v in frames[:, k]]}
 
     neighbours = []
     for d in range(1, ring + 1):

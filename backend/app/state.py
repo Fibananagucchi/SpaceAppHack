@@ -6,8 +6,10 @@ On Cloud Run this database lives on the instance's temporary filesystem, so it i
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,17 +63,33 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:20]}"
 
 
+def request_key(request: dict[str, Any]) -> str:
+    """Stable hash of a job request without its request_id, used to find an identical active job."""
+    science = {k: v for k, v in request.items() if k != "request_id"}
+    return hashlib.sha256(json.dumps(science, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 class StateStore:
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._local = threading.local()
         with self._connect() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(SCHEMA)
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+            if "request_key" not in columns:      # databases created before the column existed
+                conn.execute("ALTER TABLE jobs ADD COLUMN request_key TEXT")
+            conn.execute("CREATE INDEX IF NOT EXISTS jobs_active ON jobs(kind, request_key, status)")
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=10)
-        conn.row_factory = sqlite3.Row
+        """One connection per thread, reused. ``with conn:`` still commits or rolls back each operation."""
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.path, timeout=10)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA synchronous=NORMAL")
+            self._local.conn = conn
         return conn
 
     def health(self) -> str:
@@ -99,9 +117,10 @@ class StateStore:
         }
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO jobs (job_id, kind, status, stage, request_json, result_json, error_json, "
+                "progress_json, created_at, updated_at, request_key) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (job["job_id"], kind, "queued", "queued", json.dumps(request), None, None,
-                 json.dumps(job["progress"]), now, now),
+                 json.dumps(job["progress"]), now, now, request_key(request)),
             )
         return job
 
@@ -164,13 +183,10 @@ class StateStore:
     def find_active_job(self, kind: str, science_request: dict[str, Any]) -> dict[str, Any] | None:
         """Queued or running job of this kind whose request (ignoring request_id) is identical."""
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM jobs WHERE kind = ? AND status IN ('queued', 'running')",
-                                (kind,)).fetchall()
-        for row in rows:
-            job = self._job_from_row(row)
-            if {k: v for k, v in job["request"].items() if k != "request_id"} == science_request:
-                return job
-        return None
+            row = conn.execute("SELECT * FROM jobs WHERE kind = ? AND request_key = ? "
+                               "AND status IN ('queued', 'running') ORDER BY created_at LIMIT 1",
+                               (kind, request_key(science_request))).fetchone()
+        return self._job_from_row(row) if row else None
 
     def put_investigation(self, investigation_id: str, analysis_id: str, change_id: str, result: dict[str, Any]) -> None:
         with self._connect() as conn:

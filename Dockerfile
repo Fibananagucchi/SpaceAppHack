@@ -31,6 +31,7 @@ COPY --from=frontend /frontend/dist/ frontend_dist/
 # and STATE_DB lives on the instance's temporary filesystem.
 ENV APP_LOAD_DOTENV=0 \
     DATA_DIR=/app/data \
+    PREPARED_DIR=/app/prepared \
     RAW_DIR=/app/data/raw \
     STATE_DB=/tmp/state.sqlite \
     FRONTEND_DIST=/app/frontend_dist \

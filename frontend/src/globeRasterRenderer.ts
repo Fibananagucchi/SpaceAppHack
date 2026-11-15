@@ -1,17 +1,30 @@
-import type {GlobeLayer,GlobeView} from './globeGeometry';
-import {rasterTextureData} from './globeRasterData';
+import type { GlobeLayer, GlobeView } from './globeGeometry';
+import { rasterTextureData } from './globeRasterData';
 import cork from './assets/cork.json';
 
-export type SurfaceMode='smooth'|'cells';
-export interface RasterRenderer {draw:(layer:GlobeLayer|undefined,view:GlobeView,width:number,height:number,dpr:number,mode:SurfaceMode)=>number;invalidate:()=>void;dispose:()=>void}
+export type SurfaceMode = 'smooth' | 'cells';
+export interface RasterRenderer {
+  draw: (layer: GlobeLayer | undefined, view: GlobeView, width: number, height: number, dpr: number, mode: SurfaceMode) => number;
+  invalidate: () => void;
+  dispose: () => void;
+}
 
 /** A spatial display filter only. No filtered value leaves this shader. */
-export function createRasterRenderer(canvas:HTMLCanvasElement,landMask:ImageData):RasterRenderer|undefined {
-  const gl=canvas.getContext('webgl',{alpha:true,antialias:false,depth:false,stencil:false,premultipliedAlpha:true});if(!gl)return;
-  if(gl.getParameter(gl.MAX_TEXTURE_SIZE)<Math.max(landMask.width,landMask.height))return;
-  const compile=(type:number,source:string)=>{const shader=gl.createShader(type)!;gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error('raster_shader');return shader;};
-  const vertex=compile(gl.VERTEX_SHADER,'attribute vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}');
-  const fragment=compile(gl.FRAGMENT_SHADER,`precision highp float;
+export function createRasterRenderer(canvas: HTMLCanvasElement, landMask: ImageData): RasterRenderer | undefined {
+  const gl = canvas.getContext('webgl', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true });
+  if (!gl) return;
+  if (gl.getParameter(gl.MAX_TEXTURE_SIZE) < Math.max(landMask.width, landMask.height)) return;
+  const compile = (type: number, source: string) => {
+    const shader = gl.createShader(type)!;
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw Error('raster_shader');
+    return shader;
+  };
+  const vertex = compile(gl.VERTEX_SHADER, 'attribute vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}');
+  const fragment = compile(
+    gl.FRAGMENT_SHADER,
+    `precision highp float;
     uniform sampler2D values;uniform sampler2D cells;uniform sampler2D palette;uniform sampler2D land;
     uniform vec2 resolution;uniform vec2 centre;uniform float radius;uniform float latitude;uniform float longitude;uniform float pixelRatio;
     uniform vec2 shape;uniform vec2 origin;uniform vec2 pitch;uniform float valueMinimum;uniform float valueSpan;uniform float colourLimit;
@@ -49,28 +62,149 @@ export function createRasterRenderer(canvas:HTMLCanvasElement,landMask:ImageData
         colour=mix(colour,ink,mark*0.48);
       }
       gl_FragColor=vec4(colour,1.0);
-    }`);
-  const program=gl.createProgram()!;gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('raster_program');
-  const buffer=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
-  const maxAttributes=gl.getParameter(gl.MAX_VERTEX_ATTRIBS),position=gl.getAttribLocation(program,'position'),textures=[0,1,2,3].map(()=>gl.createTexture()!);
-  const bind=(unit:number,filter:number)=>{gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,textures[unit]);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);};
-  const palette=new Uint8Array(256*4);cork.forEach((rgb,i)=>{palette.set(rgb.map(v=>Math.round(v*255)),i*4);palette[i*4+3]=255;});
-  bind(2,gl.LINEAR);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,256,1,0,gl.RGBA,gl.UNSIGNED_BYTE,palette);
-  bind(3,gl.NEAREST);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,landMask.width,landMask.height,0,gl.RGBA,gl.UNSIGNED_BYTE,landMask.data);
-  const uniforms=Object.fromEntries(['values','cells','palette','land','resolution','centre','radius','latitude','longitude','pixelRatio','shape','origin','pitch','valueMinimum','valueSpan','colourLimit','smoothDisplay','landOnly','worldWrap'].map(k=>[k,gl.getUniformLocation(program,k)]));
-  let uploaded:GlobeLayer|undefined,drawn:GlobeLayer|undefined,lastCamera='',validCount=0,minimum=0,span=1;
-  return {draw(layer,view,width,height,dpr,mode){
-    const camera=[view.lat,view.lon,view.radius,width,height,dpr,mode].join('/'),w=Math.round(width*dpr),h=Math.round(height*dpr),resized=canvas.width!==w||canvas.height!==h;
-    if(!resized&&layer===drawn&&camera===lastCamera)return validCount;
-    if(resized){canvas.width=w;canvas.height=h;}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-    if(layer){
-      if(uploaded!==layer){const data=rasterTextureData(layer);minimum=data.minimum;span=data.span;validCount=data.validCount;for(let i=0;i<2;i++){bind(i,i===0?gl.LINEAR:gl.NEAREST);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,data.width,data.height,0,gl.RGBA,gl.UNSIGNED_BYTE,i===0?data.values:data.cells);}uploaded=layer;canvas.dataset.textureUploads=String(Number(canvas.dataset.textureUploads??0)+1);}
-      gl.useProgram(program);for(let i=0;i<maxAttributes;i++)if(i!==position)gl.disableVertexAttribArray(i);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
-      for(let i=0;i<4;i++){bind(i,i===0||i===2?gl.LINEAR:gl.NEAREST);gl.uniform1i(uniforms[['values','cells','palette','land'][i]],i);}
-      gl.uniform2f(uniforms.resolution,width,height);gl.uniform2f(uniforms.centre,view.x,view.y);gl.uniform1f(uniforms.radius,view.radius);gl.uniform1f(uniforms.latitude,view.lat*Math.PI/180);gl.uniform1f(uniforms.longitude,view.lon*Math.PI/180);gl.uniform1f(uniforms.pixelRatio,dpr);
-      gl.uniform2f(uniforms.shape,layer.cols,layer.rows);gl.uniform2f(uniforms.origin,layer.lon0-layer.dlon/2,layer.lat0-layer.dlat/2);gl.uniform2f(uniforms.pitch,layer.dlon,layer.dlat);gl.uniform1f(uniforms.valueMinimum,minimum);gl.uniform1f(uniforms.valueSpan,span);gl.uniform1f(uniforms.colourLimit,layer.limit);gl.uniform1f(uniforms.smoothDisplay,mode==='smooth'?1:0);gl.uniform1f(uniforms.landOnly,layer.landOnly?1:0);gl.uniform1f(uniforms.worldWrap,layer.domain==='world'?1:0);
-      gl.disable(gl.BLEND);gl.drawArrays(gl.TRIANGLES,0,6);
-    }else{validCount=0;uploaded=undefined;}
-    drawn=layer;lastCamera=camera;return validCount;
-  },invalidate(){lastCamera='';},dispose(){textures.forEach(t=>gl.deleteTexture(t));gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);}};
+    }`,
+  );
+  const program = gl.createProgram()!;
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw Error('raster_program');
+  const buffer = gl.createBuffer()!;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+  const maxAttributes = gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+    position = gl.getAttribLocation(program, 'position'),
+    textures = [0, 1, 2, 3].map(() => gl.createTexture()!);
+  const bind = (unit: number, filter: number) => {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, textures[unit]);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  };
+  const palette = new Uint8Array(256 * 4);
+  cork.forEach((rgb, i) => {
+    palette.set(
+      rgb.map((v) => Math.round(v * 255)),
+      i * 4,
+    );
+    palette[i * 4 + 3] = 255;
+  });
+  bind(2, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, palette);
+  bind(3, gl.NEAREST);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, landMask.width, landMask.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, landMask.data);
+  const uniforms = Object.fromEntries(
+    [
+      'values',
+      'cells',
+      'palette',
+      'land',
+      'resolution',
+      'centre',
+      'radius',
+      'latitude',
+      'longitude',
+      'pixelRatio',
+      'shape',
+      'origin',
+      'pitch',
+      'valueMinimum',
+      'valueSpan',
+      'colourLimit',
+      'smoothDisplay',
+      'landOnly',
+      'worldWrap',
+    ].map((k) => [k, gl.getUniformLocation(program, k)]),
+  );
+  let uploaded: GlobeLayer | undefined,
+    drawn: GlobeLayer | undefined,
+    lastCamera = '',
+    validCount = 0,
+    minimum = 0,
+    span = 1;
+  return {
+    draw(layer, view, width, height, dpr, mode) {
+      const camera = [view.lat, view.lon, view.radius, width, height, dpr, mode].join('/'),
+        w = Math.round(width * dpr),
+        h = Math.round(height * dpr),
+        resized = canvas.width !== w || canvas.height !== h;
+      if (!resized && layer === drawn && camera === lastCamera) return validCount;
+      if (resized) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      if (layer) {
+        if (uploaded !== layer) {
+          const data = rasterTextureData(layer);
+          minimum = data.minimum;
+          span = data.span;
+          validCount = data.validCount;
+          for (let i = 0; i < 2; i++) {
+            bind(i, i === 0 ? gl.LINEAR : gl.NEAREST);
+            gl.texImage2D(
+              gl.TEXTURE_2D,
+              0,
+              gl.RGBA,
+              data.width,
+              data.height,
+              0,
+              gl.RGBA,
+              gl.UNSIGNED_BYTE,
+              i === 0 ? data.values : data.cells,
+            );
+          }
+          uploaded = layer;
+          canvas.dataset.textureUploads = String(Number(canvas.dataset.textureUploads ?? 0) + 1);
+        }
+        gl.useProgram(program);
+        for (let i = 0; i < maxAttributes; i++) if (i !== position) gl.disableVertexAttribArray(i);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(position);
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+        for (let i = 0; i < 4; i++) {
+          bind(i, i === 0 || i === 2 ? gl.LINEAR : gl.NEAREST);
+          gl.uniform1i(uniforms[['values', 'cells', 'palette', 'land'][i]], i);
+        }
+        gl.uniform2f(uniforms.resolution, width, height);
+        gl.uniform2f(uniforms.centre, view.x, view.y);
+        gl.uniform1f(uniforms.radius, view.radius);
+        gl.uniform1f(uniforms.latitude, (view.lat * Math.PI) / 180);
+        gl.uniform1f(uniforms.longitude, (view.lon * Math.PI) / 180);
+        gl.uniform1f(uniforms.pixelRatio, dpr);
+        gl.uniform2f(uniforms.shape, layer.cols, layer.rows);
+        gl.uniform2f(uniforms.origin, layer.lon0 - layer.dlon / 2, layer.lat0 - layer.dlat / 2);
+        gl.uniform2f(uniforms.pitch, layer.dlon, layer.dlat);
+        gl.uniform1f(uniforms.valueMinimum, minimum);
+        gl.uniform1f(uniforms.valueSpan, span);
+        gl.uniform1f(uniforms.colourLimit, layer.limit);
+        gl.uniform1f(uniforms.smoothDisplay, mode === 'smooth' ? 1 : 0);
+        gl.uniform1f(uniforms.landOnly, layer.landOnly ? 1 : 0);
+        gl.uniform1f(uniforms.worldWrap, layer.domain === 'world' ? 1 : 0);
+        gl.disable(gl.BLEND);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      } else {
+        validCount = 0;
+        uploaded = undefined;
+      }
+      drawn = layer;
+      lastCamera = camera;
+      return validCount;
+    },
+    invalidate() {
+      lastCamera = '';
+    },
+    dispose() {
+      textures.forEach((t) => gl.deleteTexture(t));
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+    },
+  };
 }

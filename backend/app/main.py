@@ -7,6 +7,7 @@ On Cloud Run the container command binds to $PORT (see Dockerfile).
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +22,9 @@ from .analysis import AREA_JOB_KIND, MODIS_JOB_KIND, area_job_handler, modis_job
 from .investigation import investigate
 from .jobs import JobFailed
 from .api.routes import SERVICE_VERSION, router
+from . import storage
 from .config import Settings, get_settings
+from .http_client import close_shared_client
 from .jobs import JobRunner
 from .logging_setup import setup_logging
 from .state import StateStore
@@ -75,10 +78,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.started_at = datetime.now(timezone.utc)
         await runner.start()
+        # Read and compress every prepared layer once, in a worker thread, so the first /globe request
+        # does not parse dozens of files and the event loop keeps serving other requests meanwhile.
+        warm = asyncio.create_task(asyncio.to_thread(storage.warm_cache, settings.data_dir, settings.prepared_dir))
         try:
             yield
         finally:
+            warm.cancel()
             await runner.stop()
+            await close_shared_client()
 
     app = FastAPI(
         title="Earth System Trend Detective API",

@@ -7,6 +7,7 @@ investigations until step 4; maps answer ``not_ready`` until precomputed.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -50,10 +51,10 @@ async def health(request: Request, deep: bool = False) -> dict[str, Any]:
         },
         "config": {
             "earthdata_token_configured": settings.token_configured,  # boolean only, never the value
-            "data_dir_writable": storage.data_dir_writable(settings.data_dir),
-            "state_db": app.state.store.health(),
+            "data_dir_writable": await asyncio.to_thread(storage.data_dir_writable, settings.data_dir),
+            "state_db": await asyncio.to_thread(app.state.store.health),
         },
-        "europe_cube": storage.cube_status(settings.data_dir),
+        "europe_cube": await asyncio.to_thread(storage.cube_status, settings.data_dir),
     }
     if deep:
         body["sources"] = await sources.deep_check(settings)
@@ -63,7 +64,7 @@ async def health(request: Request, deep: bool = False) -> dict[str, Any]:
 
 
 @router.get("/variables")
-async def variables() -> dict[str, Any]:
+def variables() -> dict[str, Any]:
     return {"status": "ok", "variables": catalog.list_public_variables()}
 
 
@@ -78,7 +79,7 @@ async def create_analysis(body: AnalysisRequest, request: Request) -> JSONRespon
 
 
 @router.get("/analyses/{analysis_id}")
-async def get_analysis(analysis_id: str, request: Request) -> JSONResponse:
+def get_analysis(analysis_id: str, request: Request) -> JSONResponse:
     stored = request.app.state.store.get_analysis(analysis_id)
     if stored is None:
         return _not_found("unknown_analysis")
@@ -86,7 +87,7 @@ async def get_analysis(analysis_id: str, request: Request) -> JSONResponse:
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str, request: Request) -> JSONResponse:
+def get_job(job_id: str, request: Request) -> JSONResponse:
     job = request.app.state.store.get_job(job_id)
     if job is None:
         return _not_found("unknown_job")
@@ -108,59 +109,71 @@ async def create_investigation(body: InvestigationRequest, request: Request) -> 
 
 
 @router.get("/investigations/{investigation_id}")
-async def get_investigation(investigation_id: str, request: Request) -> JSONResponse:
+def get_investigation(investigation_id: str, request: Request) -> JSONResponse:
     stored = request.app.state.store.get_investigation(investigation_id)
     if stored is None:
         return _not_found("unknown_investigation")
     return JSONResponse(content=stored)
 
 
-def _globe_file(request: Request, variable_id: str, kind: str, domain: str) -> Response:
-    """A prepared globe file (frames or trend) of a domain, compressed once and cached.
+# Layers change only when the pipeline is re-run: the browser keeps its copy and revalidates it by ETag.
+LAYER_CACHE_CONTROL = "public, no-cache"
+
+
+def _layer_response(request: Request, entry: storage.LayerEntry) -> Response:
+    """A prepared layer, compressed once per file version. 304 when the client already has this version.
 
     The gzip middleware passes a response that already has Content-Encoding through as is.
     """
+    headers = {"ETag": entry.etag, "Cache-Control": LAYER_CACHE_CONTROL, "Vary": "Accept-Encoding"}
+    if entry.etag in {t.strip() for t in request.headers.get("if-none-match", "").split(",")}:
+        return Response(status_code=304, headers=headers)
+    body, encoding = entry.body(request.headers.get("accept-encoding", ""))
+    if encoding:
+        headers["Content-Encoding"] = encoding
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+def _globe_file(request: Request, variable_id: str, kind: str, domain: str) -> Response:
+    """A prepared globe file (frames, trend or changes) of a domain."""
     if catalog.get_variable(variable_id) is None:
         return _not_found("unknown_variable")
     if variable_id not in catalog.CORE_VARIABLE_IDS:
         return JSONResponse(content={"status": "not_available", "variable_id": variable_id,
                                      "reason": "no_globe_layer_for_variable"})
     settings = request.app.state.settings
-    gz = "gzip" in request.headers.get("accept-encoding", "").lower()
-    body = storage.read_globe_bytes(settings.data_dir, settings.prepared_dir, variable_id, gzipped=gz, kind=kind,
-                                    domain=domain)
-    if body is None:
+    entry = storage.globe_entry(settings.data_dir, settings.prepared_dir, variable_id, kind=kind, domain=domain)
+    if entry is None:
         return JSONResponse(content={"status": "not_ready", "variable_id": variable_id, "domain": domain,
                                      "reason": "not_computed"})
-    headers = {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"} if gz else {"Vary": "Accept-Encoding"}
-    return Response(content=body, media_type="application/json", headers=headers)
+    return _layer_response(request, entry)
 
 
 @router.get("/globe")
-async def globe_domains(request: Request) -> dict[str, Any]:
+def globe_domains(request: Request) -> dict[str, Any]:
     """Which globe domain (Europe 1°, World 2°) is ready for which variable, frames and trend separately."""
     return globe.domains_index(request.app.state.settings)
 
 
 @router.get("/globe/europe")
-async def globe_index(request: Request) -> dict[str, Any]:
+def globe_index(request: Request) -> dict[str, Any]:
     """Which annual-anomaly frames (format globe-1) are available for the Europe globe layer."""
     return globe.index(request.app.state.settings)
 
 
 @router.get("/globe/europe/{variable_id}")
-async def globe_frames(variable_id: str, request: Request) -> Response:
+def globe_frames(variable_id: str, request: Request) -> Response:
     return _globe_file(request, variable_id, "frames", "europe")
 
 
 @router.get("/globe/europe/{variable_id}/trend")
-async def globe_trend(variable_id: str, request: Request) -> Response:
+def globe_trend(variable_id: str, request: Request) -> Response:
     """Full-period trend on the 1° globe grid (format map-1.2): trend of aggregated monthly anomalies, BH-FDR."""
     return _globe_file(request, variable_id, "trend", "europe")
 
 
 @router.get("/globe/europe/{variable_id}/strip")
-async def globe_strip(variable_id: str, request: Request,
+def globe_strip(variable_id: str, request: Request,
                       lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180),
                       ring: int = Query(default=1, ge=1, le=globe.MAX_RING)) -> JSONResponse:
     """Annual anomalies of the 1° globe cell at a point and of its neighbours (time strip)."""
@@ -170,31 +183,31 @@ async def globe_strip(variable_id: str, request: Request,
 
 
 @router.get("/globe/europe/{variable_id}/changes")
-async def globe_changes(variable_id: str, request: Request) -> Response:
+def globe_changes(variable_id: str, request: Request) -> Response:
     """Possible abrupt change per 1° Europe cell with its category (format changes-1)."""
     return _globe_file(request, variable_id, "changes", "europe")
 
 
 @router.get("/globe/world/{variable_id}/changes")
-async def globe_world_changes(variable_id: str, request: Request) -> Response:
+def globe_world_changes(variable_id: str, request: Request) -> Response:
     """Possible abrupt change per 2° world cell with its category (format changes-1)."""
     return _globe_file(request, variable_id, "changes", "world")
 
 
 @router.get("/globe/world/{variable_id}")
-async def globe_world_frames(variable_id: str, request: Request) -> Response:
+def globe_world_frames(variable_id: str, request: Request) -> Response:
     """Yearly anomaly frames on the 2° world grid (format globe-1)."""
     return _globe_file(request, variable_id, "frames", "world")
 
 
 @router.get("/globe/world/{variable_id}/trend")
-async def globe_world_trend(variable_id: str, request: Request) -> Response:
+def globe_world_trend(variable_id: str, request: Request) -> Response:
     """Full-period trend on the 2° world grid (format map-1.2), BH-FDR over all world cells."""
     return _globe_file(request, variable_id, "trend", "world")
 
 
 @router.get("/globe/world/{variable_id}/strip")
-async def globe_world_strip(variable_id: str, request: Request,
+def globe_world_strip(variable_id: str, request: Request,
                             lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180),
                             ring: int = Query(default=1, ge=1, le=globe.MAX_RING)) -> JSONResponse:
     """Annual anomalies of the 2° world cell at a point and of its neighbours (longitude wraps)."""
@@ -204,13 +217,13 @@ async def globe_world_strip(variable_id: str, request: Request,
 
 
 @router.get("/known-events")
-async def known_events_list() -> dict[str, Any]:
+def known_events_list() -> dict[str, Any]:
     """The curated list of known events used for R2 / R3, with sources and matching rules (for review)."""
     return public_list()
 
 
 @router.get("/maps/europe")
-async def maps_index(request: Request) -> dict[str, Any]:
+def maps_index(request: Request) -> dict[str, Any]:
     settings = request.app.state.settings
     maps = []
     for vid in catalog.CORE_VARIABLE_IDS:
@@ -224,11 +237,11 @@ async def maps_index(request: Request) -> dict[str, Any]:
 
 
 @router.get("/maps/europe/{variable_id}")
-async def map_europe(variable_id: str, request: Request) -> JSONResponse:
+def map_europe(variable_id: str, request: Request) -> Response:
     if catalog.get_variable(variable_id) is None:
         return _not_found("unknown_variable")
     settings = request.app.state.settings
-    prepared = storage.read_map(settings.data_dir, settings.prepared_dir, variable_id)
-    if prepared and prepared.get("status") == "ok":
-        return JSONResponse(content=prepared)
+    entry = storage.read_map_entry(settings.data_dir, settings.prepared_dir, variable_id)
+    if entry is not None:
+        return _layer_response(request, entry)
     return JSONResponse(content={"status": "not_ready", "variable_id": variable_id, "reason": "not_computed"})

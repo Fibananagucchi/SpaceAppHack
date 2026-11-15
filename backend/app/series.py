@@ -30,6 +30,7 @@ import numpy as np
 
 from . import catalog, storage
 from .config import Settings
+from .http_client import upstream
 from .state import StateStore, utc_now
 
 GIOVANNI_TS_URL = "https://api.giovanni.earthdata.nasa.gov/timeseries"
@@ -229,7 +230,7 @@ async def fetch_giovanni(settings: Settings, store: StateStore, variable_id: str
         params = {"data": giovanni_id, "location": f"[{lat:.4f},{lon:.4f}]", "time": f"{start}/{end}"}
         headers = {"Authorization": f"Bearer {settings.earthdata_token}"}
         try:
-            async with httpx.AsyncClient(timeout=settings.upstream_timeout_s) as client:
+            async with upstream(timeout=settings.upstream_timeout_s) as client:
                 response = await client.get(GIOVANNI_TS_URL, params=params, headers=headers)
         except httpx.TimeoutException as exc:
             raise SourceError("giovanni", "timeout") from exc
@@ -416,7 +417,7 @@ async def fetch_harmony_area(settings: Settings, store: StateStore, variable_id:
                   ("subset", f'time("{start}":"{end}")'), ("variable", internal["giovanni_id"]),
                   ("average", "area"), ("format", "text/csv")]
         try:
-            async with httpx.AsyncClient(timeout=settings.upstream_timeout_s) as client:
+            async with upstream(timeout=settings.upstream_timeout_s) as client:
                 submit = await client.get(url, params=params, headers=headers, follow_redirects=False)
                 if submit.status_code in (401, 403):
                     raise SourceError("harmony", "rejected")
@@ -524,7 +525,7 @@ def _modis_value(variable_id: str, raw: float) -> float:
     return raw / internal["scale_divisor"] if internal.get("scale_divisor") else raw * internal["scale_multiplier"]
 
 
-async def _list_granules(client: httpx.AsyncClient, collection: str) -> list[tuple[str, str]]:
+async def _list_granules(client, collection: str) -> list[tuple[str, str]]:
     import asyncio
 
     out: list[tuple[str, str]] = []
@@ -576,7 +577,7 @@ async def fetch_modis_point(settings: Settings, store: StateStore, variable_id: 
         headers = {"Authorization": f"Bearer {settings.earthdata_token}"}
         constraint = quote(f"{internal['dataset_path']}[{row}][{col}]", safe="/;:")
         dataset_key = internal["dataset_path"].lstrip("/")
-        async with httpx.AsyncClient(timeout=settings.upstream_timeout_s, follow_redirects=True) as client:
+        async with upstream(timeout=settings.upstream_timeout_s, follow_redirects=True) as client:
             granules = await _list_granules(client, internal["collection_concept_id"])
             if not granules:
                 raise SourceError("lpdaac", "unavailable")

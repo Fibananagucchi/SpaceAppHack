@@ -1,23 +1,224 @@
-import {useEffect,useState} from 'react';
-import {record,safeLink} from './analysis';
-import {changeGroup,changeLabels,changeSymbols} from './globeChanges';
-import type {ChangeLayer,MapChange,GlobeEvent,ChangeGroup} from './globeChanges';
-import type {GlobeResource} from './useGlobeData';
-import {coordinate,month,signed} from './format';
-import {References} from './Mode2Conclusion';
+import { useEffect, useState } from 'react';
+import { record, safeLink } from './analysis';
+import { changeGroup, changeLabels, changeSymbols } from './globeChanges';
+import type { ChangeLayer, MapChange, GlobeEvent, ChangeGroup } from './globeChanges';
+import type { GlobeResource } from './useGlobeData';
+import { coordinate, month, signed } from './format';
+import { References } from './Mode2Conclusion';
 
-export function CategoryIcon({group,label}:{group:ChangeGroup;label?:string}) {return <span className={`category-icon category-${group}`} role="img" aria-label={label??changeLabels[group]}>{changeSymbols[group]}</span>;}
-export function ChangesLegend({resource,year,count,onBrowse,globalEvents=[],onEvent}:{resource:GlobeResource<ChangeLayer>;year?:number;count:number;onBrowse:()=>void;globalEvents?:GlobeEvent[];onEvent?:(e:GlobeEvent)=>void}) {
-  const [expanded,setExpanded]=useState(()=>typeof matchMedia==='function'&&matchMedia('(min-height: 850px) and (min-width: 901px)').matches);
-  useEffect(()=>{const m=matchMedia('(min-height: 850px) and (min-width: 901px)'),update=()=>setExpanded(m.matches);m.addEventListener('change',update);return()=>m.removeEventListener('change',update);},[]);
-  return <details open={expanded} onToggle={e=>setExpanded(e.currentTarget.open)} className="changes-legend" aria-label="Changes legend" data-domain={resource.domain}><summary>Changes · {year??'—'}{resource.data?` · ${count} candidates`:resource.kind==='loading'?' · loading…':resource.kind==='error'?' · unavailable':' · not ready'}</summary><div className="changes-legend-content"><small>{resource.data?`${resource.data.domain==='world'?'World':'Europe'} changes · ${resource.data.grid.dlat}° cells`:'Changes'}</small><p>{year??'—'} <span>· {resource.data?`${count} change ${count===1?'candidate':'candidates'}`:resource.kind==='loading'?'Loading changes…':resource.kind==='error'?'Changes unavailable':'Changes not ready'}</span></p><div>{(['product','event','unknown'] as const).map(group=><span key={group}><CategoryIcon group={group}/>{changeLabels[group]}</span>)}</div><small>Dashed = possible jump · a match is not a cause.</small>{globalEvents.map(event=><button key={event.id} className="text-button global-event-badge" onClick={()=>onEvent?.(event)}>◇ Global context · {event.title} ↗</button>)}{resource.notice&&<small role="status">{resource.notice}</small>}<button className="text-button" onClick={onBrowse}>Grid & sources ↗</button></div></details>;
+export function CategoryIcon({ group, label }: { group: ChangeGroup; label?: string }) {
+  return (
+    <span className={`category-icon category-${group}`} role="img" aria-label={label ?? changeLabels[group]}>
+      {changeSymbols[group]}
+    </span>
+  );
 }
-export function EventEvidence({event}:{event:GlobeEvent}) {return <article className="selected-event-evidence"><p className="eyebrow">◇ Documented event</p><h3>{event.title}</h3><p>{month(event.start)}{event.start!==event.end?` — ${month(event.end)}`:''}</p><References value={event.sources}/><details><summary>Location and limits</summary><p>{event.global?'This source describes a global effect.':`The marker is the centre of an approximate region (${coordinate(event.lat)}°, ${coordinate(event.lon)}°), not an exact event location.`}</p><p>{String(record(event.raw.area).description??'Region details unavailable.')}</p><p>Shown as documented context; it does not establish what caused a measured jump.</p></details></article>;}
-export function SelectedChange({marker,layer,events}:{marker:MapChange;layer:ChangeLayer;events:GlobeEvent[]}) {
-  const event=events.find(e=>e.id===marker.eventId),boundary=layer.boundaries.find(b=>b.id===marker.boundaryId||b.boundary_id===marker.boundaryId),ref=record(boundary?.reference);
-  return <article className="selected-change-evidence"><p className="eyebrow">{layer.domain==='world'?'World':'Europe'} {layer.grid.dlat}° cell · separate from the point record</p><h3><CategoryIcon group={changeGroup(marker.category)}/>{month(marker.date)} · {marker.status==='inconclusive'?'possible':'sudden'} jump</h3><p>{marker.coinciding?'A product change and documented event both match; these data do not choose between them.':changeLabels[changeGroup(marker.category)]+'.'}</p>{marker.shift!==null&&<strong>{signed(marker.shift)} {layer.unit}<small> · shift after − before</small></strong>}{boundary&&<div className="marker-source"><h4>▱ {String(boundary.title??'Satellite product changed')}</h4>{typeof boundary.date==='string'&&<p>{month(boundary.date)}</p>}<References value={safeLink(ref.url)?[ref]:typeof boundary.reference==='string'?[{title:'Product documentation',url:boundary.reference}]:[]}/></div>}{event&&<EventEvidence event={event}/>}<details><summary>How this map cell was classified</summary><p>The backend checked this aggregated record. A new native point analysis can differ.</p><p>{String(record(layer.raw.rules).text??'Source rules are available in the layer metadata.')}</p><p>Category: {marker.category.replaceAll('_',' ')} · {marker.status.replaceAll('_',' ')}.</p><p>{coordinate(marker.lat)}°, {coordinate(marker.lon)}° · {month(layer.start)} — {month(layer.end)}.</p><p>Jump-test p: {marker.p===null?'Unavailable':String(marker.p)}.</p></details></article>;
+export function ChangesLegend({
+  resource,
+  year,
+  count,
+  onBrowse,
+  globalEvents = [],
+  onEvent,
+}: {
+  resource: GlobeResource<ChangeLayer>;
+  year?: number;
+  count: number;
+  onBrowse: () => void;
+  globalEvents?: GlobeEvent[];
+  onEvent?: (e: GlobeEvent) => void;
+}) {
+  const [expanded, setExpanded] = useState(
+    () => typeof matchMedia === 'function' && matchMedia('(min-height: 850px) and (min-width: 901px)').matches,
+  );
+  useEffect(() => {
+    const m = matchMedia('(min-height: 850px) and (min-width: 901px)'),
+      update = () => setExpanded(m.matches);
+    m.addEventListener('change', update);
+    return () => m.removeEventListener('change', update);
+  }, []);
+  return (
+    <details
+      open={expanded}
+      onToggle={(e) => setExpanded(e.currentTarget.open)}
+      className="changes-legend"
+      aria-label="Changes legend"
+      data-domain={resource.domain}
+    >
+      <summary>
+        Changes · {year ?? '—'}
+        {resource.data
+          ? ` · ${count} candidates`
+          : resource.kind === 'loading'
+            ? ' · loading…'
+            : resource.kind === 'error'
+              ? ' · unavailable'
+              : ' · not ready'}
+      </summary>
+      <div className="changes-legend-content">
+        <small>
+          {resource.data
+            ? `${resource.data.domain === 'world' ? 'World' : 'Europe'} changes · ${resource.data.grid.dlat}° cells`
+            : 'Changes'}
+        </small>
+        <p>
+          {year ?? '—'}{' '}
+          <span>
+            ·{' '}
+            {resource.data
+              ? `${count} change ${count === 1 ? 'candidate' : 'candidates'}`
+              : resource.kind === 'loading'
+                ? 'Loading changes…'
+                : resource.kind === 'error'
+                  ? 'Changes unavailable'
+                  : 'Changes not ready'}
+          </span>
+        </p>
+        <div>
+          {(['product', 'event', 'unknown'] as const).map((group) => (
+            <span key={group}>
+              <CategoryIcon group={group} />
+              {changeLabels[group]}
+            </span>
+          ))}
+        </div>
+        <small>Dashed = possible jump · a match is not a cause.</small>
+        {globalEvents.map((event) => (
+          <button key={event.id} className="text-button global-event-badge" onClick={() => onEvent?.(event)}>
+            ◇ Global context · {event.title} ↗
+          </button>
+        ))}
+        {resource.notice && <small role="status">{resource.notice}</small>}
+        <button className="text-button" onClick={onBrowse}>
+          Grid & sources ↗
+        </button>
+      </div>
+    </details>
+  );
 }
-export function ChangeBrowser({layer,year,onPick}:{layer?:ChangeLayer;year?:number;onPick:(m:MapChange)=>void}) {
-  const [page,setPage]=useState(0),rows=layer?.markers.filter(m=>Number(m.date.slice(0,4))===year)??[],size=40,start=page*size;
-  return <details className="change-browser" id="change-map-browser"><summary>Browse {year??'this year'} · {rows.length} change candidates</summary>{!layer?<p>Changes have not been loaded.</p>:rows.length===0?<p>No change candidates for this year. This does not prove nothing changed.</p>:<><ul>{rows.slice(start,start+size).map(m=><li key={m.id}><button onClick={()=>onPick(m)}><CategoryIcon group={changeGroup(m.category)}/><span>{month(m.date)} · {coordinate(m.lat)}°, {coordinate(m.lon)}°<small>{m.status==='inconclusive'?'Possible jump':changeLabels[changeGroup(m.category)]}{m.coinciding?' + documented event':''}</small></span></button></li>)}</ul><div className="change-page"><button disabled={page===0} onClick={()=>setPage(p=>p-1)}>Previous</button><span>{start+1}–{Math.min(rows.length,start+size)} / {rows.length}</span><button disabled={start+size>=rows.length} onClick={()=>setPage(p=>p+1)}>Next</button></div></>}</details>;
+export function EventEvidence({ event }: { event: GlobeEvent }) {
+  return (
+    <article className="selected-event-evidence">
+      <p className="eyebrow">◇ Documented event</p>
+      <h3>{event.title}</h3>
+      <p>
+        {month(event.start)}
+        {event.start !== event.end ? ` — ${month(event.end)}` : ''}
+      </p>
+      <References value={event.sources} />
+      <details>
+        <summary>Location and limits</summary>
+        <p>
+          {event.global
+            ? 'This source describes a global effect.'
+            : `The marker is the centre of an approximate region (${coordinate(event.lat)}°, ${coordinate(event.lon)}°), not an exact event location.`}
+        </p>
+        <p>{String(record(event.raw.area).description ?? 'Region details unavailable.')}</p>
+        <p>Shown as documented context; it does not establish what caused a measured jump.</p>
+      </details>
+    </article>
+  );
+}
+export function SelectedChange({ marker, layer, events }: { marker: MapChange; layer: ChangeLayer; events: GlobeEvent[] }) {
+  const event = events.find((e) => e.id === marker.eventId),
+    boundary = layer.boundaries.find((b) => b.id === marker.boundaryId || b.boundary_id === marker.boundaryId),
+    ref = record(boundary?.reference);
+  return (
+    <article className="selected-change-evidence">
+      <p className="eyebrow">
+        {layer.domain === 'world' ? 'World' : 'Europe'} {layer.grid.dlat}° cell · separate from the point record
+      </p>
+      <h3>
+        <CategoryIcon group={changeGroup(marker.category)} />
+        {month(marker.date)} · {marker.status === 'inconclusive' ? 'possible' : 'sudden'} jump
+      </h3>
+      <p>
+        {marker.coinciding
+          ? 'A product change and documented event both match; these data do not choose between them.'
+          : changeLabels[changeGroup(marker.category)] + '.'}
+      </p>
+      {marker.shift !== null && (
+        <strong>
+          {signed(marker.shift)} {layer.unit}
+          <small> · shift after − before</small>
+        </strong>
+      )}
+      {boundary && (
+        <div className="marker-source">
+          <h4>▱ {String(boundary.title ?? 'Satellite product changed')}</h4>
+          {typeof boundary.date === 'string' && <p>{month(boundary.date)}</p>}
+          <References
+            value={
+              safeLink(ref.url)
+                ? [ref]
+                : typeof boundary.reference === 'string'
+                  ? [{ title: 'Product documentation', url: boundary.reference }]
+                  : []
+            }
+          />
+        </div>
+      )}
+      {event && <EventEvidence event={event} />}
+      <details>
+        <summary>How this map cell was classified</summary>
+        <p>The backend checked this aggregated record. A new native point analysis can differ.</p>
+        <p>{String(record(layer.raw.rules).text ?? 'Source rules are available in the layer metadata.')}</p>
+        <p>
+          Category: {marker.category.replaceAll('_', ' ')} · {marker.status.replaceAll('_', ' ')}.
+        </p>
+        <p>
+          {coordinate(marker.lat)}°, {coordinate(marker.lon)}° · {month(layer.start)} — {month(layer.end)}.
+        </p>
+        <p>Jump-test p: {marker.p === null ? 'Unavailable' : String(marker.p)}.</p>
+      </details>
+    </article>
+  );
+}
+export function ChangeBrowser({ layer, year, onPick }: { layer?: ChangeLayer; year?: number; onPick: (m: MapChange) => void }) {
+  const [page, setPage] = useState(0),
+    rows = layer?.markers.filter((m) => Number(m.date.slice(0, 4)) === year) ?? [],
+    size = 40,
+    start = page * size;
+  return (
+    <details className="change-browser" id="change-map-browser">
+      <summary>
+        Browse {year ?? 'this year'} · {rows.length} change candidates
+      </summary>
+      {!layer ? (
+        <p>Changes have not been loaded.</p>
+      ) : rows.length === 0 ? (
+        <p>No change candidates for this year. This does not prove nothing changed.</p>
+      ) : (
+        <>
+          <ul>
+            {rows.slice(start, start + size).map((m) => (
+              <li key={m.id}>
+                <button onClick={() => onPick(m)}>
+                  <CategoryIcon group={changeGroup(m.category)} />
+                  <span>
+                    {month(m.date)} · {coordinate(m.lat)}°, {coordinate(m.lon)}°
+                    <small>
+                      {m.status === 'inconclusive' ? 'Possible jump' : changeLabels[changeGroup(m.category)]}
+                      {m.coinciding ? ' + documented event' : ''}
+                    </small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="change-page">
+            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </button>
+            <span>
+              {start + 1}–{Math.min(rows.length, start + size)} / {rows.length}
+            </span>
+            <button disabled={start + size >= rows.length} onClick={() => setPage((p) => p + 1)}>
+              Next
+            </button>
+          </div>
+        </>
+      )}
+    </details>
+  );
 }

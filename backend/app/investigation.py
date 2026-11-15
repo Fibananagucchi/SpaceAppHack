@@ -40,6 +40,7 @@ import numpy as np
 from . import catalog, known_events, stats
 from .breaks import analyze_breaks
 from .config import Settings
+from .http_client import upstream
 from .series import SourceError, area_from_cube, bbox_in_europe, cube_ready, from_cube, fetch_giovanni, month_range
 from .state import StateStore, new_id
 
@@ -266,7 +267,7 @@ async def eonet_search(analysis: dict[str, Any]) -> dict[str, Any]:
     params = {"bbox": f"{west},{north},{east},{south}", "start": start.isoformat(), "end": end.isoformat(),
               "status": "all", "limit": 100}
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with upstream(timeout=30.0) as client:
             r = await client.get(EONET_URL, params=params)
     except httpx.HTTPError:
         return {"status": "source_error", "search": search, "coverage_note": coverage}

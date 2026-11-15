@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 
 from .config import Settings
+from .http_client import upstream
 from .state import utc_now
 
 GIOVANNI_TS_URL = "https://api.giovanni.earthdata.nasa.gov/timeseries"
@@ -38,7 +39,7 @@ def _classify(status_code: int) -> str:
     return "unavailable"
 
 
-async def _probe(client: httpx.AsyncClient, url: str, *, params: dict[str, str] | None = None,
+async def _probe(client, url: str, *, params: dict[str, str] | None = None,
                  headers: dict[str, str] | None = None) -> dict[str, Any]:
     started = time.perf_counter()
     try:
@@ -57,7 +58,7 @@ async def deep_check(settings: Settings) -> dict[str, Any]:
     if _cache["result"] is not None and now - _cache["at"] < _CACHE_TTL_S:
         return _cache["result"]
     auth = {"Authorization": f"Bearer {settings.earthdata_token}"} if settings.token_configured else None
-    async with httpx.AsyncClient(timeout=20.0, follow_redirects=False) as client:
+    async with upstream(timeout=20.0) as client:
         tasks = {"eonet": _probe(client, EONET_PROBE_URL)}
         if auth:
             tasks["giovanni"] = _probe(client, GIOVANNI_TS_URL, params=GIOVANNI_PROBE, headers=auth)
