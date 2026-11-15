@@ -25,9 +25,25 @@ EUROPE_BBOX = (-25.0, 34.0, 45.0, 72.0)  # west, south, east, north
 # Common 1° grid of the globe layer (task 017): cell centres, row 0 = south, column 0 = west.
 GLOBE_GRID = {"shape": [38, 70], "lat0": 34.5, "dlat": 1.0, "lon0": -24.5, "dlon": 1.0}
 
+# World layer (task 020): 2° cells, row 0 = south (centre -89), column 0 = west (centre -179).
+WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
+WORLD_GRID = {"shape": [90, 180], "lat0": -89.0, "dlat": 2.0, "lon0": -179.0, "dlon": 2.0}
+DOMAINS = {
+    "europe": {"id": "europe", "name": "Europe", "bbox": EUROPE_BBOX, "grid": GLOBE_GRID, "cube": "europe"},
+    "world": {"id": "world", "name": "World", "bbox": WORLD_BBOX, "grid": WORLD_GRID, "cube": "world"},
+}
+
 
 def cube_dir(data_dir: Path, variable_id: str) -> Path:
     return Path(data_dir) / "cube" / "europe" / variable_id
+
+
+def world_cube_dir(data_dir: Path, variable_id: str) -> Path:
+    return Path(data_dir) / "cube" / "world" / variable_id
+
+
+def domain_cube_dir(data_dir: Path, domain: str, variable_id: str) -> Path:
+    return Path(data_dir) / "cube" / DOMAINS[domain]["cube"] / variable_id
 
 
 def map_path(data_dir: Path, variable_id: str) -> Path:
@@ -52,12 +68,12 @@ def read_map(data_dir: Path, prepared_dir: Path | None, variable_id: str) -> dic
     return None
 
 
-def globe_path(data_dir: Path, variable_id: str) -> Path:
-    return Path(data_dir) / "globe" / "europe" / f"{variable_id}.json"
+def globe_path(data_dir: Path, variable_id: str, domain: str = "europe") -> Path:
+    return Path(data_dir) / "globe" / domain / f"{variable_id}.json"
 
 
-def globe_trend_path(data_dir: Path, variable_id: str) -> Path:
-    return Path(data_dir) / "globe" / "europe" / "trend" / f"{variable_id}.json"
+def globe_trend_path(data_dir: Path, variable_id: str, domain: str = "europe") -> Path:
+    return Path(data_dir) / "globe" / domain / "trend" / f"{variable_id}.json"
 
 
 # path -> [mtime, payload, serialised bytes, gzip bytes or None]; the gzip copy belongs to that exact file version
@@ -92,30 +108,33 @@ def _cached(path: Path, gz: bool) -> list[Any] | None:
     return entry
 
 
-def _globe_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str) -> list[Any] | None:
-    fresh_path = globe_path(data_dir, variable_id) if kind == "frames" else globe_trend_path(data_dir, variable_id)
+def _globe_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str,
+                 domain: str = "europe") -> list[Any] | None:
+    fresh_path = (globe_path(data_dir, variable_id, domain) if kind == "frames"
+                  else globe_trend_path(data_dir, variable_id, domain))
     fresh = _cached(fresh_path, gz=False)
     if fresh is not None:
         return fresh
     if prepared_dir is not None:
-        sub = Path("globe") / "europe"
+        sub = Path("globe") / domain
         if kind == "trend":
             sub = sub / "trend"
         return _cached(Path(prepared_dir) / sub / f"{variable_id}.json.gz", gz=True)
     return None
 
 
-def read_globe(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str = "frames") -> dict[str, Any] | None:
-    """Globe frames (globe-1) or the 1° trend layer (map-1.2) from DATA_DIR (fresh) or, if absent, the
-    prepared copy shipped in the image. Read-only: callers must not modify the returned payload."""
-    entry = _globe_entry(data_dir, prepared_dir, variable_id, kind)
+def read_globe(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str = "frames",
+               domain: str = "europe") -> dict[str, Any] | None:
+    """Globe frames (globe-1) or the trend layer (map-1.2) of a domain from DATA_DIR (fresh) or, if absent,
+    the prepared copy shipped in the image. Read-only: callers must not modify the returned payload."""
+    entry = _globe_entry(data_dir, prepared_dir, variable_id, kind, domain)
     return entry[1] if entry else None
 
 
 def read_globe_bytes(data_dir: Path, prepared_dir: Path | None, variable_id: str, gzipped: bool = False,
-                     kind: str = "frames") -> bytes | None:
+                     kind: str = "frames", domain: str = "europe") -> bytes | None:
     """The same payload already serialised; optionally gzip-compressed once per file version and cached."""
-    entry = _globe_entry(data_dir, prepared_dir, variable_id, kind)
+    entry = _globe_entry(data_dir, prepared_dir, variable_id, kind, domain)
     if entry is None:
         return None
     if not gzipped:

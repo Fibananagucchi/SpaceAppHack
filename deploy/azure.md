@@ -44,6 +44,7 @@ The Dockerfile copies these into the image. They are in the repository:
 | Europe trend maps (7 files) | `data/prepared/maps/europe/*.json.gz` | `/app/prepared/maps/europe/` |
 | Europe globe frames (7 files) | `data/prepared/globe/europe/*.json.gz` | `/app/prepared/globe/europe/` |
 | 1° globe trend (7 files) | `data/prepared/globe/europe/trend/*.json.gz` | `/app/prepared/globe/europe/trend/` |
+| World globe frames and trend (2°) | `data/prepared/globe/world/*.json.gz`, `…/world/trend/*.json.gz` | `/app/prepared/globe/world/` |
 | Curated known events | `backend/app/data/known_events.json` | `/app/backend/app/data/` |
 | Web interface | built from `frontend/` in the first Docker stage | `/app/frontend_dist/` |
 
@@ -143,6 +144,7 @@ Then check the prepared data and the interface:
 ```powershell
 (Invoke-RestMethod "$URL/api/v1/globe/europe").layers | Format-Table variable_id, status, served_from, @{n='trend';e={$_.trend.status}}
 (Invoke-RestMethod "$URL/api/v1/maps/europe").maps | Format-Table variable_id, status
+(Invoke-RestMethod "$URL/api/v1/globe").layers | Format-Table variable_id, @{n='world';e={$_.world.frames.status}}, @{n='world trend';e={$_.world.trend.status}}
 (Invoke-RestMethod "$URL/api/v1/known-events").events.Count     # 10
 Invoke-WebRequest "$URL/" -UseBasicParsing | Select-Object StatusCode   # 200: the interface is in the image
 ```

@@ -3,6 +3,7 @@
 Usage (from the repository root, after the cube is ready):
     python -m backend.pipelines.europe_globe                    # all 7 variables
     python -m backend.pipelines.europe_globe --variables t2m --prepared
+    python -m backend.pipelines.europe_globe --domain world --variables t2m --prepared   # 2° world layer (task 020)
 
 For every native cube cell: monthly values in display units -> anomalies from the cell's own
 monthly climatology over the full record (the same rule as a point analysis without a period)
@@ -31,7 +32,7 @@ import numpy as np
 from backend.app import annual, catalog, stats
 from backend.app.config import load_settings
 from backend.app.series import to_display_units
-from backend.app.storage import EUROPE_BBOX, GLOBE_GRID, cube_dir, globe_path, read_json, write_json_atomic
+from backend.app.storage import DOMAINS, domain_cube_dir, globe_path, read_json, write_json_atomic
 
 log = logging.getLogger("europe_globe")
 PROCESSING_VERSION = "globe-1"
@@ -63,7 +64,7 @@ def monthly_anomalies(values: np.ndarray, times: list[str]) -> np.ndarray:
 
 
 def box_index(coords: np.ndarray, start: float, step: float, n: int) -> np.ndarray:
-    """1° box of each native cell centre; centres on the far domain edge go to the last box."""
+    """Box of each native cell centre; centres on the far domain edge go to the last box."""
     return np.clip(np.floor((np.asarray(coords, dtype=float) - start) / step + 1e-9).astype(int), 0, n - 1)
 
 
@@ -78,8 +79,24 @@ def encode(values: np.ndarray, scale: float) -> list[int | None]:
     return [None if not math.isfinite(v) else int(round(v / scale)) for v in values.tolist()]
 
 
-def build_globe(variable_id: str, data_dir: Path) -> dict:
-    folder = cube_dir(data_dir, variable_id)
+def domain_fields(domain: str, meta: dict) -> dict:
+    """Grid, bbox and wording of a domain (Europe 1° from the Europe cube, World 2° from the strided world cube)."""
+    d = DOMAINS[domain]
+    g = d["grid"]
+    size = f"{g['dlat']:g}°"
+    sampling = meta.get("sampling")
+    return {"grid": g, "bbox": d["bbox"], "size": size,
+            "domain": {"id": d["id"], "name": d["name"], "bbox": list(d["bbox"])},
+            "source": ("Europe cube from NASA GES DISC cloud OPeNDAP" if domain == "europe"
+                       else "World cube from NASA GES DISC cloud OPeNDAP, native cells sampled with a stride"),
+            "sampling": (None if not sampling else
+                         {"stride": sampling["stride"], "sampled_step_deg": sampling["sampled_step_deg"],
+                          "rule": "every k-th native cell along latitude and longitude (real native cells, "
+                                  "not interpolated); the box mean uses these sampled cells"})}
+
+
+def build_globe(variable_id: str, data_dir: Path, domain: str = "europe") -> dict:
+    folder = domain_cube_dir(data_dir, domain, variable_id)
     meta = read_json(folder / "meta.json")
     status = read_json(folder / "status.json") or {}
     if not meta or status.get("status") != "ready":
@@ -89,9 +106,10 @@ def build_globe(variable_id: str, data_dir: Path) -> dict:
     lat = np.asarray(meta["lat"], dtype=float)
     lon = np.asarray(meta["lon"], dtype=float)
     times: list[str] = meta["times"]
-    g = GLOBE_GRID
+    dom = domain_fields(domain, meta)
+    g = dom["grid"]
     nrow, ncol = g["shape"]
-    west, south = EUROPE_BBOX[0], EUROPE_BBOX[1]
+    west, south = dom["bbox"][0], dom["bbox"][1]
     row_of = box_index(lat, south, g["dlat"], nrow)
     col_of = box_index(lon, west, g["dlon"], ncol)
     cols_in_box = [np.where(col_of == c)[0] for c in range(ncol)]
@@ -154,20 +172,22 @@ def build_globe(variable_id: str, data_dir: Path) -> dict:
         "unit": variable["unit"],
         "product": {"product": variable["source"]["product"], "version": variable["source"]["version"],
                     "doi": variable["source"]["doi"], "mission_or_model": variable["source"]["mission_or_model"]},
-        "provenance": {"source": "Europe cube from NASA GES DISC cloud OPeNDAP",
+        "provenance": {"source": dom["source"],
                        "cube_assembled_at": meta.get("assembled_at"), "computed_at": utc_now(),
                        "processing_version": PROCESSING_VERSION, "statistics_version": stats.PROCESSING_VERSION},
-        "domain": {"name": "Europe", "bbox": list(EUROPE_BBOX)},
+        "domain": dom["domain"],
         "grid": {"shape": [nrow, ncol], "lat0": g["lat0"], "dlat": g["dlat"], "lon0": g["lon0"], "dlon": g["dlon"],
                  "order": "row-major, row 0 = southernmost latitude, column 0 = westernmost longitude",
                  "cell_reference": "center",
                  "aggregation": {
                      "native_resolution_deg": {"lat": native["lat_deg"], "lon": native["lon_deg"]},
-                     "method": ("cos-latitude weighted mean of the annual anomalies of the native cube cells whose "
-                                "centres lie in the 1° box (centres on the north / east domain edge belong to the "
-                                "last row / column)"),
-                     "valid_rule": (f"a 1° cell is valid in a year only if at least {int(MIN_BOX_FRACTION * 100)} % "
-                                    f"of its native cells that have data are valid; otherwise null"),
+                     "method": (f"cos-latitude weighted mean of the annual anomalies of the native cube cells whose "
+                                f"centres lie in the {dom['size']} box (centres on the north / east domain edge belong "
+                                f"to the last row / column)"),
+                     "valid_rule": (f"a {dom['size']} cell is valid in a year only if at least "
+                                    f"{int(MIN_BOX_FRACTION * 100)} % of its native cells that have data are valid; "
+                                    f"otherwise null"),
+                     "sampling": dom["sampling"],
                      "native_cells_per_box": {"min": int(native_per_box[native_per_box > 0].min()),
                                               "max": int(native_per_box.max())},
                      "why": "one grid for all seven variables; native resolution stays in point analyses and maps"}},
@@ -195,8 +215,8 @@ def build_globe(variable_id: str, data_dir: Path) -> dict:
     }
 
 
-def write_prepared(prepared_dir: Path, variable_id: str, payload: dict) -> Path:
-    path = Path(prepared_dir) / "globe" / "europe" / f"{variable_id}.json.gz"
+def write_prepared(prepared_dir: Path, variable_id: str, payload: dict, domain: str = "europe") -> Path:
+    path = Path(prepared_dir) / "globe" / domain / f"{variable_id}.json.gz"
     path.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
@@ -206,8 +226,9 @@ def write_prepared(prepared_dir: Path, variable_id: str, payload: dict) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variables", default=",".join(catalog.CORE_VARIABLE_IDS))
+    parser.add_argument("--domain", choices=sorted(DOMAINS), default="europe")
     parser.add_argument("--prepared", action="store_true",
-                        help="also write the gzip copy shipped with the code (data/prepared/globe/europe)")
+                        help="also write the gzip copy shipped with the code (data/prepared/globe/<domain>)")
     args = parser.parse_args(argv)
     settings = load_settings()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stdout)
@@ -215,11 +236,11 @@ def main(argv: list[str] | None = None) -> int:
     for vid in [v.strip() for v in args.variables.split(",") if v.strip()]:
         try:
             started = time.monotonic()
-            payload = build_globe(vid, settings.data_dir)
-            write_json_atomic(globe_path(settings.data_dir, vid), payload)
+            payload = build_globe(vid, settings.data_dir, args.domain)
+            write_json_atomic(globe_path(settings.data_dir, vid, args.domain), payload)
             if args.prepared:
-                write_prepared(settings.prepared_dir, vid, payload)
-            log.info("%s: globe frames written, years %s-%s, cells %s, %.0f s", vid, payload["years"][0],
+                write_prepared(settings.prepared_dir, vid, payload, args.domain)
+            log.info("%s/%s: globe frames written, years %s-%s, cells %s, %.0f s", args.domain, vid, payload["years"][0],
                      payload["years"][-1], payload["cell_counts"], time.monotonic() - started)
         except Exception as exc:
             log.exception("%s: globe frames failed (%s)", vid, type(exc).__name__)

@@ -115,44 +115,48 @@ async def get_investigation(investigation_id: str, request: Request) -> JSONResp
     return JSONResponse(content=stored)
 
 
+def _globe_file(request: Request, variable_id: str, kind: str, domain: str) -> Response:
+    """A prepared globe file (frames or trend) of a domain, compressed once and cached.
+
+    The gzip middleware passes a response that already has Content-Encoding through as is.
+    """
+    if catalog.get_variable(variable_id) is None:
+        return _not_found("unknown_variable")
+    if variable_id not in catalog.CORE_VARIABLE_IDS:
+        return JSONResponse(content={"status": "not_available", "variable_id": variable_id,
+                                     "reason": "no_globe_layer_for_variable"})
+    settings = request.app.state.settings
+    gz = "gzip" in request.headers.get("accept-encoding", "").lower()
+    body = storage.read_globe_bytes(settings.data_dir, settings.prepared_dir, variable_id, gzipped=gz, kind=kind,
+                                    domain=domain)
+    if body is None:
+        return JSONResponse(content={"status": "not_ready", "variable_id": variable_id, "domain": domain,
+                                     "reason": "not_computed"})
+    headers = {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"} if gz else {"Vary": "Accept-Encoding"}
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+@router.get("/globe")
+async def globe_domains(request: Request) -> dict[str, Any]:
+    """Which globe domain (Europe 1°, World 2°) is ready for which variable, frames and trend separately."""
+    return globe.domains_index(request.app.state.settings)
+
+
 @router.get("/globe/europe")
 async def globe_index(request: Request) -> dict[str, Any]:
-    """Which annual-anomaly frames (format globe-1) are available for the globe layer."""
+    """Which annual-anomaly frames (format globe-1) are available for the Europe globe layer."""
     return globe.index(request.app.state.settings)
 
 
 @router.get("/globe/europe/{variable_id}")
 async def globe_frames(variable_id: str, request: Request) -> Response:
-    if catalog.get_variable(variable_id) is None:
-        return _not_found("unknown_variable")
-    if variable_id not in catalog.CORE_VARIABLE_IDS:
-        return JSONResponse(content={"status": "not_available", "variable_id": variable_id,
-                                     "reason": "no_globe_layer_for_variable"})
-    settings = request.app.state.settings
-    gz = "gzip" in request.headers.get("accept-encoding", "").lower()
-    body = storage.read_globe_bytes(settings.data_dir, settings.prepared_dir, variable_id, gzipped=gz)
-    if body is None:
-        return JSONResponse(content={"status": "not_ready", "variable_id": variable_id, "reason": "not_computed"})
-    # compressed once and cached: the gzip middleware passes a response with Content-Encoding through as is
-    headers = {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"} if gz else {"Vary": "Accept-Encoding"}
-    return Response(content=body, media_type="application/json", headers=headers)
+    return _globe_file(request, variable_id, "frames", "europe")
 
 
 @router.get("/globe/europe/{variable_id}/trend")
 async def globe_trend(variable_id: str, request: Request) -> Response:
     """Full-period trend on the 1° globe grid (format map-1.2): trend of aggregated monthly anomalies, BH-FDR."""
-    if catalog.get_variable(variable_id) is None:
-        return _not_found("unknown_variable")
-    if variable_id not in catalog.CORE_VARIABLE_IDS:
-        return JSONResponse(content={"status": "not_available", "variable_id": variable_id,
-                                     "reason": "no_globe_layer_for_variable"})
-    settings = request.app.state.settings
-    gz = "gzip" in request.headers.get("accept-encoding", "").lower()
-    body = storage.read_globe_bytes(settings.data_dir, settings.prepared_dir, variable_id, gzipped=gz, kind="trend")
-    if body is None:
-        return JSONResponse(content={"status": "not_ready", "variable_id": variable_id, "reason": "not_computed"})
-    headers = {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"} if gz else {"Vary": "Accept-Encoding"}
-    return Response(content=body, media_type="application/json", headers=headers)
+    return _globe_file(request, variable_id, "trend", "europe")
 
 
 @router.get("/globe/europe/{variable_id}/strip")
@@ -163,6 +167,28 @@ async def globe_strip(variable_id: str, request: Request,
     if catalog.get_variable(variable_id) is None:
         return _not_found("unknown_variable")
     return JSONResponse(content=globe.strip(request.app.state.settings, variable_id, lat, lon, ring))
+
+
+@router.get("/globe/world/{variable_id}")
+async def globe_world_frames(variable_id: str, request: Request) -> Response:
+    """Yearly anomaly frames on the 2° world grid (format globe-1)."""
+    return _globe_file(request, variable_id, "frames", "world")
+
+
+@router.get("/globe/world/{variable_id}/trend")
+async def globe_world_trend(variable_id: str, request: Request) -> Response:
+    """Full-period trend on the 2° world grid (format map-1.2), BH-FDR over all world cells."""
+    return _globe_file(request, variable_id, "trend", "world")
+
+
+@router.get("/globe/world/{variable_id}/strip")
+async def globe_world_strip(variable_id: str, request: Request,
+                            lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180),
+                            ring: int = Query(default=1, ge=1, le=globe.MAX_RING)) -> JSONResponse:
+    """Annual anomalies of the 2° world cell at a point and of its neighbours (longitude wraps)."""
+    if catalog.get_variable(variable_id) is None:
+        return _not_found("unknown_variable")
+    return JSONResponse(content=globe.strip(request.app.state.settings, variable_id, lat, lon, ring, "world"))
 
 
 @router.get("/known-events")

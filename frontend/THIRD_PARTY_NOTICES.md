@@ -224,3 +224,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+
+## Scientific Colour Maps 8.0.1 / cork
+
+Original RGB lookup table, MIT licence. [Versioned archive and licence metadata](https://doi.org/10.5281/zenodo.8409685), [official overview](https://www.fabiocrameri.ch/colourmaps/). The original licence notice is distributed with this application as [ScientificColourMaps-LICENCE.pdf](ScientificColourMaps-LICENCE.pdf). The interface uses the unmodified central segment, rows 32–223, with linear lookup and zero at the neutral midpoint. Numeric colour limits are those provided by the data API. No new runtime library.

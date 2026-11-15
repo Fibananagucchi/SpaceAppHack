@@ -10,8 +10,8 @@ Pick a place on Earth and one of nine NASA variables. The tool tells you, from r
    it is consistent with: a documented change of the data product, a documented natural event, documented
    human influence, or nothing the data can point to. It never claims to have proven a cause.
 
-Over Europe, a globe of grid cells shows yearly anomalies, and a time strip lets you scrub or play through the
-years. Anywhere else, a click on the globe runs the same analysis live for that point.
+A globe of grid cells shows yearly anomalies for the whole world (2° cells; Europe in more detail on 1° cells), and a
+time strip lets you scrub or play through the years. A click anywhere runs the full analysis live for that exact point.
 
 ---
 
@@ -59,6 +59,12 @@ everywhere else (Giovanni, Harmony); the prepared maps and globe frames still wo
   - the time strip shows the selected place and its neighbouring 1° cells;
   - a full-period trend layer on the same 1° grid: the monthly anomalies of the native cells are averaged into each 1° cell
     first, and the trend and the false discovery rate are computed on that series (not an average of finished trends).
+- **World globe layer** (2° cells, 90 × 180): the same yearly frames and full-period trend for the whole globe, by the same
+  method, with the false discovery rate controlled over all cells of the world. To avoid downloading the full native
+  resolution of the planet, the native cells are sampled with a stride (for example every second MERRA-2 and GLDAS
+  cell, every fifth IMERG cell): these are real native values, not interpolated. The sampling of each layer is in its metadata.
+  `GET /api/v1/globe` says for each variable whether its world and Europe layers are ready; where the world layer is not
+  ready, Europe still works and points anywhere use a live analysis.
 
 ### Mode 2 — abrupt changes
 - **Possible change point:** Pettitt test (at least 24 months on each side).
@@ -124,6 +130,8 @@ One container serves everything:
 | `GET /api/v1/maps/europe`, `GET /api/v1/maps/europe/{variable}` | Europe trend maps (format `map-1.2`) |
 | `GET /api/v1/globe/europe`, `GET /api/v1/globe/europe/{variable}` | Yearly anomaly frames on the 1° globe grid (format `globe-1`) |
 | `GET /api/v1/globe/europe/{variable}/trend` | Full-period trend on the same 1° grid (format `map-1.2`) |
+| `GET /api/v1/globe` | Which globe domain (Europe 1°, World 2°) is ready for which variable |
+| `GET /api/v1/globe/world/{variable}`, `.../trend`, `.../strip?lat=&lon=` | The same three layers on the 2° world grid |
 | `GET /api/v1/globe/europe/{variable}/strip?lat=&lon=` | The selected 1° cell and its neighbours for the time strip |
 | `GET /api/v1/known-events` | The curated list of known events, its sources and matching rules |
 
@@ -161,6 +169,7 @@ Then open <http://127.0.0.1:8080/>.
 .venv/Scripts/python -m backend.pipelines.europe_maps                    # trend maps from the cube
 .venv/Scripts/python -m backend.pipelines.europe_globe --prepared        # yearly globe frames (+ copies shipped with the image)
 .venv/Scripts/python -m backend.pipelines.europe_globe_trend --prepared  # full-period trend on the 1° globe grid
+.venv/Scripts/python -m backend.pipelines.world_cube --with-layers       # world: strided download + 2° frames and trend
 ```
 Raw subsets go to `data/raw/` and the assembled cube to `data/runtime/cube/europe/`; both are ignored by git.
 Downloads resume where they stopped. `europe_cube --with-maps` builds the maps, globe frames and globe trend after the cube.
@@ -188,8 +197,8 @@ The public instance runs on Microsoft Azure. To update it after new commits, fol
 
 ## Known limitations
 
-- The globe layer, the trend maps and instant area answers cover Europe only. Elsewhere every analysis is live and
-  takes longer.
+- The detailed 1° globe layer, the native-resolution trend maps and instant area answers cover Europe only. The world
+  layer is coarser (2° cells from sampled native cells). Outside Europe every point or area analysis is live and takes longer.
 - Mode 2 looks for one change in level per series. Short events (a lockdown, a heat wave, a flood) are peaks or dips
   and often do not show up as a step over the whole record. Narrowing the period around an event helps.
 - The list of known events is short and hand-curated. A match means "consistent with", not "caused by".
@@ -298,6 +307,7 @@ Runtime images: Python 3.12 ([`python:3.12.8-slim`](https://hub.docker.com/_/pyt
 ### Geography, fonts, icons, images
 | Resource | Used for | Link | License |
 |---|---|---|---|
+| Scientific Colour Maps 8.0.1 — "cork" (Crameri) | Diverging colour scale of the data layers | [doi:10.5281/zenodo.1243862](https://doi.org/10.5281/zenodo.1243862) · Crameri, F., Shephard, G. E. & Heron, P. J. (2020), *Nat. Commun.* 11, 5444, [doi:10.1038/s41467-020-19160-7](https://doi.org/10.1038/s41467-020-19160-7) | MIT |
 | Natural Earth 1:110m land | Coastlines and land outline behind the data layers | [natural-earth-vector](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson) · [Terms](https://www.naturalearthdata.com/about/terms-of-use/) | Public domain ("Made with Natural Earth") |
 | System fonts (Arial, Consolas and generic fallbacks) | Interface text | [Microsoft font FAQ](https://learn.microsoft.com/en-us/typography/fonts/font-faq) | Installed system fonts; no font files redistributed |
 | Icons, charts, globe and map drawing | Interface | `frontend/src/` | Written for this project; no icon library, photos, map tiles or generated images |

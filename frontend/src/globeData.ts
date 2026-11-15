@@ -3,6 +3,7 @@ import {isMonth,isObject} from './contract';
 import type {ObjectValue} from './contract';
 import type {GlobeLayer} from './globeGeometry';
 
+export type GlobeDomain='world'|'europe';
 export interface AnomalyBaseline {start:string;end:string;kind?:string}
 export interface GlobeFrames {
   raw:ObjectValue;variableId:string;unit:string;grid:Omit<GlobeLayer,'values'|'limit'|'unit'|'label'|'significant'>;
@@ -10,7 +11,7 @@ export interface GlobeFrames {
 }
 export interface AnnualPoint {year:number;anomaly:number|null;validMonths:number}
 export interface AnnualSeries {unit:string;points:AnnualPoint[];baseline:AnomalyBaseline;rule:string;minValidMonths:number}
-export interface NeighborStrip {years:number[];unit:string;baseline:AnomalyBaseline;neighbors:{lat:number;lon:number;values:(number|null)[]}[]}
+export interface NeighborStrip {years:number[];unit:string;baseline:AnomalyBaseline;neighbors:{lat:number;lon:number;values:(number|null)[]}[];gridDegrees?:number}
 const year=(v:unknown):v is number=>Number.isInteger(v)&&Number(v)>=1800&&Number(v)<=2200;
 const orderedYears=(v:unknown):v is number[]=>Array.isArray(v)&&v.length>0&&v.length<=300&&v.every((n,i)=>year(n)&&(i===0||n>v[i-1]));
 function baseline(value:unknown):AnomalyBaseline {const outer=record(value),b=isObject(outer.period)?outer.period:outer;if(!isMonth(b.start)||!isMonth(b.end)||b.start>b.end)throw Error('invalid_baseline');return {start:b.start,end:b.end,kind:typeof outer.kind==='string'?outer.kind:undefined};}
@@ -24,7 +25,7 @@ export function parseGlobeFrames(data:ObjectValue,id:string):GlobeFrames {
 }
 export function frameLayer(data:GlobeFrames,index:number):GlobeLayer|undefined {
   if(!data.frames[index])return undefined;
-  return {...data.grid,values:data.frames[index].map(v=>v===null?null:v*data.scale),limit:data.limit,unit:data.unit,label:`${data.years[index]} annual anomaly · 1° cells`};
+  return {...data.grid,values:data.frames[index].map(v=>v===null?null:v*data.scale),limit:data.limit,unit:data.unit,label:`${data.years[index]} annual anomaly · ${data.grid.dlat}° cells`,domain:record(data.raw.domain).id==='world'?'world':'europe'};
 }
 export function parseAnnual(value:unknown):AnnualSeries|undefined {
   const data=record(value);if(data.status!=='ok')return undefined;
@@ -37,6 +38,12 @@ export function parseNeighborStrip(data:ObjectValue,id:string):NeighborStrip {
   if(data.status!=='ok'||data.variable_id!==id||typeof data.unit!=='string'||!orderedYears(data.years)||!Array.isArray(data.neighbours)||data.neighbours.length>24)throw Error('invalid_strip');
   const years=data.years;
   const neighbors=data.neighbours.map(value=>{if(!isObject(value)||!finite(value.center_lat)||!finite(value.center_lon)||!Array.isArray(value.values)||value.values.length!==years.length||!value.values.every(v=>v===null||finite(v)))throw Error('invalid_strip');return {lat:value.center_lat,lon:value.center_lon,values:value.values as (number|null)[]};});
-  return {years,unit:data.unit,baseline:baseline(data.baseline),neighbors};
+  return {years,unit:data.unit,baseline:baseline(data.baseline),neighbors,gridDegrees:record(data.domain).id==='world'?2:1};
 }
 export const sameBaseline=(a:AnomalyBaseline,b:AnomalyBaseline)=>a.kind==='full_record'&&b.kind==='full_record';
+
+/** Reject detailed native grids or a domain mismatch in the display-layer path. */
+export function validateDisplayGrid(data:ObjectValue,domain:GlobeDomain):void {
+  const g=record(data.grid),expected=domain==='world'?[90,180,-89,-179,2]:[38,70,34.5,-24.5,1];
+  if(!Array.isArray(g.shape)||g.shape[0]!==expected[0]||g.shape[1]!==expected[1]||g.lat0!==expected[2]||g.lon0!==expected[3]||g.dlat!==expected[4]||g.dlon!==expected[4]||(domain==='world'&&record(data.domain).id!=='world')||(record(data.domain).id!==undefined&&record(data.domain).id!==domain))throw Error('invalid_display_grid');
+}

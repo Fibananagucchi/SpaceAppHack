@@ -12,5 +12,5 @@ describe('Readable values without changing scientific precision',()=>{
 });
 describe('Actual geography and a neutral-centred display ramp',()=>{
   it('decodes Natural Earth coordinates without using a synthetic coastline',()=>{const rings=coastlineRings('<svg><path d="M180,90L181,91Z"/></svg>');expect(rings[0]).toEqual([{lat:0,lon:0},{lat:-1,lon:1},{lat:0,lon:0}]);expect(COASTLINES.length).toBeGreaterThan(50);});
-  it('maps zero to the same neutral centre and retains distinct negative and positive ends',()=>{expect(anomalyColour(0,1)).toBe('rgb(199,207,203)');expect(anomalyColour(-1,1)).not.toBe(anomalyColour(1,1));expect(anomalyColour(-2,1)).toBe(anomalyColour(-1,1));});
+  it('maps zero to the same neutral centre and retains distinct negative and positive ends',()=>{expect(anomalyColour(0,1)).toBe('rgb(230,237,236)');expect(anomalyColour(-1,1)).not.toBe(anomalyColour(1,1));expect(anomalyColour(-2,1)).toBe(anomalyColour(-1,1));});
 });

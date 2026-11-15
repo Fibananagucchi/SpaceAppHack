@@ -207,59 +207,64 @@ Playwright 1.65.1 and playwright-core 1.65.1 are development-only tools under
 The dependency inventory is in `THIRD_PARTY_NOTICES.md`. No new application
 library, external font, icon package, tile service or generated image was added.
 
-## Globe and annual data contract (tasks 017–018)
+## Globe and annual data contract (tasks 017–018 / 020)
 
-`GET /api/v1/globe/europe/{variable_id}` supplies `globe-1` frames for the seven
-core variables. Every year uses the same 38×70 grid of 1° cells. Encoded integers
-are decoded only by the supplied scale; `null` stays missing. An anomaly is
-relative to each native cell's monthly climatology over its full source record.
-The backend averages valid native annual anomalies with cosine-latitude weights.
-Colours use the backend's symmetric legend in physical units, with clipped
-extremes; they do not encode a probability, significance or a forecast.
+The interface uses real `globe-1` annual frames and `map-1.2` full-period trends.
+`GET /api/v1/globe` announces each variable's frames and trend independently in
+`world` (2° / 90×180 cells) and `europe` (1° / 38×70 cells). A ready world layer is
+preferred; a not-yet-ready or failed world request leaves the real Europe-only
+layer explicitly labelled. Unsupported MODIS layers stay unavailable. Each
+resource validates the exact agreed display grid and domain. No detailed native
+map is loaded, no absent values are filled, and missing cells are never zero.
 
-The main annual line is `series.annual` from the actual point or area analysis.
-Thin lines come from `/globe/europe/{variable_id}/strip?lat&lon&ring=1` and describe
-neighbouring 1° cells, not additional native point analyses. They appear only if
-both baselines explicitly have `kind: full_record` and units match. A restricted
-analysis uses its own baseline and hides these neighbours with an explanation.
-The UI displays each year's valid-month count and the product's required minimum:
-currently 10 months for most products and 6 for OMI NO₂. It does not override the
-backend's sufficiency rule or fill missing values. A partial last year may have
-no annual value or Europe frame. That year remains explicitly unavailable.
+Paths are `/globe/{domain}/{variable_id}`, `/trend`, and
+`/strip?lat&lon&ring=1`. Units, numeric colour limits, baseline, valid-month rules,
+spatial sampling and provenance come from the API. Values encoded as integer ×
+scale are decoded exactly. Full-period Sen/Mann–Kendall and FDR decisions are
+computed by the backend after spatial aggregation; the UI never averages slopes
+or p/q-values. World FDR is over world cells, Europe FDR over Europe cells; these
+are not combined in a single layer.
 
-Full-period trend colours use `/globe/europe/{variable_id}/trend`: the same 1° grid
-as annual frames, encoded as `map-1.2`, with server FDR flags. The server aggregates
-native monthly anomalies before estimating Sen/Mann–Kendall and applying FDR. The
-frontend never averages slopes or p/q-values. It does not fetch the detailed
-`/maps/europe` layer. A↔B uses these same 1° cells, followed by actual native-point
-requests; native values and statistical decisions can differ from spatial averages. Play is disabled for this fixed layer, for products
-without frames and under reduced motion. Playback changes only existing annual
-frames, stops at the end or when the document is hidden, and never rotates the
-globe automatically. Native point/area requests outside Europe retain the ordinary
-source and job workflow; neutral geography is not a measured zero.
+Readiness is checked every 20 seconds while visible and on window focus. A changed
+`computed_at` reloads the relevant world payload independently; unchanged
+resources stay in memory. If an older index omits trend revision metadata, that
+smaller payload is revalidated at most once per minute. A failed refresh keeps
+the last real loaded layer with an explicit notice. Changing the variable aborts
+old requests, and stale responses cannot replace the new selection.
 
-Drag rotates the globe in Point mode; a click selects a cell or global point.
-Arrow keys rotate, Enter selects the visible centre, and plus/minus zoom.
-Area mode supports dragging bounds on the same globe; exact coordinate and area
-fields are keyboard accessible. The year slider, annual ribbon and step buttons
-also work from the keyboard. Evidence and selection use native modal semantics,
-Escape and focus return. Narrow screens put the card above the same globe.
+The main line is the native point/area analysis's `series.annual`, not the display
+cell. Thin neighbours use the current display domain (world 2° or Europe 1°) and
+appear only when units match and both baselines explicitly have `kind: full_record`.
+A restricted-period baseline hides incompatible neighbours with an explanation.
+Annual gaps, each year's valid-month count, and the API minimum (usually 10,
+OMI NO₂ 6) remain visible. Partial years can be unavailable. Play changes only
+existing real frames, is disabled for fixed trend / no frames / reduced motion,
+and stops when the page is hidden. There is no automatic globe rotation.
 
-Local real-data browser checks (Vite on 8018, API on 8000):
+Click coordinates are the exact inverse projection, independent of display
+sampling. P and manually chosen A/B retain those coordinates for native analysis.
+The backend's resolved native grid centre is separately disclosed on the result
+card and passport. Automatic opposite-sign search uses actual display-cell centres;
+it is not a representative sample. A/B indices are guarded when a domain changes.
+
+Drag, keyboard arrows, Enter, +/- and wheel provide rotation / exact selection /
+zoom. The same globe supports area bounds. Evidence and controls retain modal
+keyboard behaviour, Escape and focus return; mobile screens stack card and globe.
+
+Current real-data checks (isolated Edge, no observation mocks or team profiles):
 
 ```powershell
-node tools/check-globe-browser.mjs
-node tools/check-globe-interactions.mjs
-node tools/check-globe-presentation.mjs
-node tools/check-globe-production.mjs
+node tools/check-globe-world.mjs
+node tools/check-globe-world.mjs --production
+node tools/check-globe-selection.mjs --world
+node tools/bench-globe.mjs world
 ```
 
-These use isolated headless Edge and the existing Playwright dependency. They
-request real analyses and context jobs, with no API fixtures or substituted
-observations. Review screenshots and verification JSON stay under the ignored
-`_mockups/globe-018/` folder, never in the production bundle. Unit tests use
-synthetic protocol cases only under `tests/`. The screenshot checks do not access
-the team's browser profiles or tabs.
+Vite runs on 8018 and API on 8000. The production check uses API8000's actual
+built frontend at the same origin. Screenshots, raw timings and checks are in
+ignored `_mockups/globe-018-world/`; protocol/geometry fixtures stay in tests only.
+Historical Europe-only browser scripts predate the world contract and contain
+assumptions that no longer apply (for example, no neighbours outside Europe).
 
 ## Globe resources
 
@@ -281,8 +286,13 @@ projection, controls and timeline are project-authored Canvas/WebGL/SVG/React co
   [OMI](https://doi.org/10.5067/Aura/OMI/DATA3007). NASA open data; cite dataset DOIs.
 - Arial and Consolas use local system fonts with generic fallbacks, under their
   installed licences. [Font licensing FAQ](https://learn.microsoft.com/en-us/typography/fonts/font-faq).
-  No font files are redistributed. Blue/copper colour stops and interface symbols
-  are original project code; there is no external icon or palette library.
+  No font files are redistributed. Interface symbols are original project code.
+- Data colours: [Scientific Colour Maps 8.0.1 / cork](https://doi.org/10.5281/zenodo.8409685),
+  MIT. The original RGB table is in `src/assets/cork.json`; the display uses
+  unmodified rows 32–223, linearly, zero centred, with API numeric limits unchanged.
+  This wider segment increases colour contrast over the pale preview (64–191).
+  The original MIT notice is distributed as `ScientificColourMaps-LICENCE.pdf`
+  and included in `THIRD_PARTY_NOTICES.md`. No palette runtime library is added.
 - Browser rendering uses the existing development-only
   [Playwright Apache-2.0 dependency](https://github.com/microsoft/playwright/blob/main/LICENSE)
   and installed Microsoft Edge; no browser binary is redistributed.
@@ -295,13 +305,14 @@ root submission README when the team prepares the final resource inventory.
 ## Refinements and performance (15 November, 12:10 team feedback)
 
 A fresh visit starts with Evapotranspiration; a resumed pending request keeps its
-own variable. Natural Earth coastlines are drawn over the Europe dots. The globe
+own variable. Natural Earth coastlines are drawn above all data dots. The globe
 supports 0.7–8× zoom via buttons, keyboard and wheel; Europe view and Selected
 place help centre a region. Dot radius follows geographic cell spacing and zoom,
 with a screen-size bound. Zoom never creates finer observations.
 
-The diverging blue/copper ramp has a neutral grey centre and desaturated ends.
-Dot colours use 65 display bins so Canvas can batch paths; source values and legend
+Graphite / Sage is the chosen dark UI palette (team, 13:56). The diverging cork
+ramp retains a light neutral centre and stronger blue/green data colours.
+Dot colours use 65 display bins; source values and legend
 limits retain API precision. Evidence uses a muted dark reading surface, without a
 bright modal flash or forced transition. Headline rates/annual values use two
 significant figures. Full-precision API estimates and annual observations remain
@@ -315,9 +326,18 @@ positions are cached. Year changes recolour dots without reprojecting or repaint
 geography. Coastlines/graticules cache by camera; canvas buffers resize only when
 the viewport changes. Pointer input and drawing coalesce to animation frames with
 a 60 Hz upper bound. Hover-only text changes do not repaint the globe; there is no
-continuous idle render loop. Full-period trend also stays at 2660 cells when zoomed.
+continuous idle render loop. Europe-only layers retain 2660 source cells; world
+layers retain 16200 source cells. Overview samples original world centres without
+aggregating data; at close zoom the full visible display grid is drawn. Longitude
+centres are thinned at low zoom near the poles. Only front-facing viewport-visible
+centres enter the drawing list. A separate original WebGL scatter renderer submits
+all visible dots in one call under the coastline/marker canvas. Low-contrast
+colours receive a thin flat keyline; centre marks indicate server FDR flags, with
+light/dark ink chosen for contrast. These overlays do not change data values. Its Canvas fallback
+keeps real data visible when WebGL is unavailable; the GPU FPS target does not
+guarantee identical software-fallback speed.
 
-Reproduce the real-data checks and benchmark on localhost:8018 / API8000:
+Historical Europe-only refinement measurements (before the world renderer):
 
 ```powershell
 node tools/capture-globe-refine.mjs after

@@ -3,6 +3,7 @@
 Usage (from the repository root, after the cube is ready):
     python -m backend.pipelines.europe_globe_trend                  # all 7 variables
     python -m backend.pipelines.europe_globe_trend --variables t2m --prepared
+    python -m backend.pipelines.europe_globe_trend --domain world --variables t2m --prepared   # 2° world (task 020)
 
 It is NOT an average of finished slopes, p- or q-values. For every 1° box:
   1. monthly anomalies of each native cube cell from its own monthly climatology (the same rule as
@@ -37,9 +38,8 @@ import numpy as np
 from backend.app import catalog, stats
 from backend.app.config import load_settings
 from backend.app.series import to_display_units
-from backend.app.storage import (EUROPE_BBOX, GLOBE_GRID, cube_dir, globe_trend_path, read_json,
-                                 write_json_atomic)
-from backend.pipelines.europe_globe import MIN_BOX_FRACTION, box_index, utc_now
+from backend.app.storage import DOMAINS, domain_cube_dir, globe_trend_path, read_json, write_json_atomic
+from backend.pipelines.europe_globe import MIN_BOX_FRACTION, box_index, domain_fields, utc_now
 from backend.pipelines.europe_maps import FDR_Q, STATUS_CODES, benjamini_hochberg, sig4
 
 log = logging.getLogger("europe_globe_trend")
@@ -73,12 +73,13 @@ def _anomaly_trend_worker(args: tuple) -> list[tuple[int, float, float, int]]:
 
 
 def box_monthly_anomalies(variable_id: str, cube: np.ndarray, lat: np.ndarray, lon: np.ndarray,
-                          times: list[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Monthly anomaly series of every 1° box: (n_boxes, n_times), native cells with data, native cells per box."""
-    nrow, ncol = GLOBE_GRID["shape"]
-    west, south = EUROPE_BBOX[0], EUROPE_BBOX[1]
-    row_of = box_index(lat, south, GLOBE_GRID["dlat"], nrow)
-    col_of = box_index(lon, west, GLOBE_GRID["dlon"], ncol)
+                          times: list[str], domain: str = "europe") -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Monthly anomaly series of every box: (n_boxes, n_times), native cells with data, native cells per box."""
+    grid, bbox = DOMAINS[domain]["grid"], DOMAINS[domain]["bbox"]
+    nrow, ncol = grid["shape"]
+    west, south = bbox[0], bbox[1]
+    row_of = box_index(lat, south, grid["dlat"], nrow)
+    col_of = box_index(lon, west, grid["dlon"], ncol)
     cols_in_box = [np.where(col_of == c)[0] for c in range(ncol)]
     out = np.full((nrow * ncol, len(times)), np.nan)
     with_data = np.zeros(nrow * ncol, dtype=int)
@@ -116,8 +117,8 @@ def box_monthly_anomalies(variable_id: str, cube: np.ndarray, lat: np.ndarray, l
     return out, with_data, per_box
 
 
-def build_globe_trend(variable_id: str, data_dir: Path, workers: int = 1) -> dict:
-    folder = cube_dir(data_dir, variable_id)
+def build_globe_trend(variable_id: str, data_dir: Path, workers: int = 1, domain: str = "europe") -> dict:
+    folder = domain_cube_dir(data_dir, domain, variable_id)
     meta = read_json(folder / "meta.json")
     status = read_json(folder / "status.json") or {}
     if not meta or status.get("status") != "ready":
@@ -127,7 +128,8 @@ def build_globe_trend(variable_id: str, data_dir: Path, workers: int = 1) -> dic
     lat = np.asarray(meta["lat"], dtype=float)
     lon = np.asarray(meta["lon"], dtype=float)
     times: list[str] = meta["times"]
-    series, with_data, per_box = box_monthly_anomalies(variable_id, cube, lat, lon, times)
+    series, with_data, per_box = box_monthly_anomalies(variable_id, cube, lat, lon, times, domain)
+    dom = domain_fields(domain, meta)
     n = series.shape[0]
 
     chunk = 200
@@ -161,29 +163,30 @@ def build_globe_trend(variable_id: str, data_dir: Path, workers: int = 1) -> dic
     last_valid = int(len(times) - 1 - np.argmax(valid_any[::-1])) if valid_any.any() else len(times) - 1
     counts = {name: int(np.sum(code == int(c))) for c, name in STATUS_CODES.items()}
     native = variable["native_resolution"]
-    g = GLOBE_GRID
+    g = dom["grid"]
     return {
         "status": "ok",
         "format_version": "map-1.2",
-        "layer": "globe_trend_1deg",
+        "layer": "globe_trend_1deg" if domain == "europe" else "globe_trend_world_2deg",
         "variable_id": variable_id,
         "product": {"product": variable["source"]["product"], "version": variable["source"]["version"],
                     "doi": variable["source"]["doi"], "mission_or_model": variable["source"]["mission_or_model"]},
-        "provenance": {"source": "Europe cube from NASA GES DISC cloud OPeNDAP",
+        "provenance": {"source": dom["source"],
                        "cube_assembled_at": meta.get("assembled_at"), "computed_at": utc_now(),
                        "processing_version": PROCESSING_VERSION, "statistics_version": stats.PROCESSING_VERSION},
-        "domain": {"name": "Europe", "bbox": list(EUROPE_BBOX)},
+        "domain": dom["domain"],
         "period": {"start": times[first_valid], "end": times[last_valid]},
         "transformation": "monthly_anomalies",
         "climatology": {"base_period": {"start": times[first_valid], "end": times[last_valid]},
                         "rule": ("each native cell's own mean of each calendar month over the record; the 1° box "
                                  "series is the weighted mean of its cells' anomalies, tested as it is")},
-        "method": {"slope": "Sen's slope of the 1° box's monthly anomalies, per decade",
+        "method": {"slope": f"Sen's slope of the {dom['size']} box's monthly anomalies, per decade",
                    "test": "Mann-Kendall with Hamed-Rao autocorrelation correction",
                    "alpha": stats.ALPHA,
-                   "multiple_testing": f"Benjamini-Hochberg false discovery rate over all tested 1° cells, q < {FDR_Q}",
+                   "multiple_testing": (f"Benjamini-Hochberg false discovery rate over all tested {dom['size']} cells "
+                                        f"of the domain, q < {FDR_Q}"),
                    "sufficiency": (f">= {stats.MIN_VALID_MONTHS} valid months and >= "
-                                   f"{int(stats.MIN_VALID_FRACTION * 100)} % valid in the 1° cell")},
+                                   f"{int(stats.MIN_VALID_FRACTION * 100)} % valid in the {dom['size']} cell")},
         "unit": variable["trend_unit"],
         "grid": {"shape": list(g["shape"]), "lat0": g["lat0"], "dlat": g["dlat"], "lon0": g["lon0"], "dlon": g["dlon"],
                  "order": "row-major, row 0 = southernmost latitude, column 0 = westernmost longitude",
@@ -191,13 +194,14 @@ def build_globe_trend(variable_id: str, data_dir: Path, workers: int = 1) -> dic
                  "aggregation": {
                      "native_resolution_deg": {"lat": native["lat_deg"], "lon": native["lon_deg"]},
                      "analysis_resolution_deg": g["dlat"],
-                     "method": ("cos-latitude weighted mean of the monthly anomalies of the native cube cells whose "
-                                "centres lie in the 1° box, computed before the trend test"),
-                     "valid_rule": (f"a 1° month is valid only if at least {int(MIN_BOX_FRACTION * 100)} % of the box's "
-                                    f"native cells that have data are valid; otherwise null"),
+                     "method": (f"cos-latitude weighted mean of the monthly anomalies of the native cube cells whose "
+                                f"centres lie in the {dom['size']} box, computed before the trend test"),
+                     "valid_rule": (f"a {dom['size']} month is valid only if at least {int(MIN_BOX_FRACTION * 100)} % of "
+                                    f"the box's native cells that have data are valid; otherwise null"),
+                     "sampling": dom["sampling"],
                      "native_cells_per_box": {"min": int(per_box[per_box > 0].min()), "max": int(per_box.max())},
-                     "note": ("trend of the aggregated series, not an average of native-cell trends; the same 1° grid "
-                              "as the globe frames (globe-1)")}},
+                     "note": ("trend of the aggregated series, not an average of native-cell trends; the same grid "
+                              "as the globe frames (globe-1) of this domain")}},
         "legend": {"center": 0, "range": [-sig4(limit), sig4(limit)] if limit else None,
                    "rule": "symmetric around 0; limit = 98th percentile of |slope| over cells with status ok"},
         "cells": {"slope": [sig4(v) if c == 0 else None for v, c in zip(slope, code)],
@@ -212,8 +216,8 @@ def build_globe_trend(variable_id: str, data_dir: Path, workers: int = 1) -> dic
     }
 
 
-def write_prepared(prepared_dir: Path, variable_id: str, payload: dict) -> Path:
-    path = Path(prepared_dir) / "globe" / "europe" / "trend" / f"{variable_id}.json.gz"
+def write_prepared(prepared_dir: Path, variable_id: str, payload: dict, domain: str = "europe") -> Path:
+    path = Path(prepared_dir) / "globe" / domain / "trend" / f"{variable_id}.json.gz"
     path.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
@@ -224,8 +228,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variables", default=",".join(catalog.CORE_VARIABLE_IDS))
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
+    parser.add_argument("--domain", choices=sorted(DOMAINS), default="europe")
     parser.add_argument("--prepared", action="store_true",
-                        help="also write the gzip copy shipped with the code (data/prepared/globe/europe/trend)")
+                        help="also write the gzip copy shipped with the code (data/prepared/globe/<domain>/trend)")
     args = parser.parse_args(argv)
     settings = load_settings()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stdout)
@@ -233,11 +238,12 @@ def main(argv: list[str] | None = None) -> int:
     for vid in [v.strip() for v in args.variables.split(",") if v.strip()]:
         try:
             started = time.monotonic()
-            payload = build_globe_trend(vid, settings.data_dir, args.workers)
-            write_json_atomic(globe_trend_path(settings.data_dir, vid), payload)
+            payload = build_globe_trend(vid, settings.data_dir, args.workers, args.domain)
+            write_json_atomic(globe_trend_path(settings.data_dir, vid, args.domain), payload)
             if args.prepared:
-                write_prepared(settings.prepared_dir, vid, payload)
-            log.info("%s: globe trend written, period %s..%s, cells %s, %.0f s", vid, payload["period"]["start"],
+                write_prepared(settings.prepared_dir, vid, payload, args.domain)
+            log.info("%s/%s: globe trend written, period %s..%s, cells %s, %.0f s", args.domain, vid,
+                     payload["period"]["start"],
                      payload["period"]["end"], payload["cell_counts"], time.monotonic() - started)
         except Exception as exc:
             log.exception("%s: globe trend failed (%s)", vid, type(exc).__name__)
