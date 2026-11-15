@@ -28,10 +28,10 @@ function Segment({value,index}: {value:ObjectValue;index:number}) {
 }
 
 const changeCopy: Record<string,{title:string;body:string}>={
-  detected:{title:'A possible level change.',body:'The service’s model comparison favours a step over a gradual straight line. This is a statistical candidate for inspection; it does not identify an event or its cause.'},
-  not_detected:{title:'No change detected by this test.',body:'The test did not identify a change under its conditions. This does not demonstrate that the record is free of changes.'},
-  not_distinct_from_trend:{title:'A gradual trend remains plausible.',body:'Pettitt responds to a possible division in this record, but the model comparison favours a gradual straight line. Do not interpret this date as a distinct abrupt event.'},
-  inconclusive:{title:'Step or gradual trend?',body:'The test identifies a candidate division, but the model comparison does not clearly distinguish a step from a gradual trend.'},
+  detected:{title:'A possible level change.',body:'The test favours a jump over a gradual line; this does not identify its cause.'},
+  not_detected:{title:'No change detected by this test.',body:'This test found no jump; it may still miss changes.'},
+  not_distinct_from_trend:{title:'A gradual trend remains plausible.',body:'A gradual line fits better than a sudden jump.'},
+  inconclusive:{title:'Step or gradual trend?',body:'This record does not clearly separate a jump from a gradual trend.'},
 };
 
 export function ChangePanel({data,selected,onSelect}: {data:ObjectValue;selected?:string;onSelect:(id:string)=>void}) {
@@ -43,7 +43,7 @@ export function ChangePanel({data,selected,onSelect}: {data:ObjectValue;selected
   const info=changeCopy[String(cp.status)];
   const conditions=record(breaks.conditions);
   return <section id="changes" tabIndex={-1} className="change-panel" aria-label="Change-point inspection">
-    <div className="change-heading"><p className="eyebrow">Change seam / basic change inspection</p><h3>Look beyond one slope.</h3><p>A possible division in a record is a prompt to inspect the evidence, not a cause label.</p></div>
+    <div className="change-heading"><p className="eyebrow">Change seam / basic change inspection</p><h3>Look beyond one slope.</h3><p>Select a marker to inspect what changed.</p></div>
     {breaks.status!=='ok'?<div className="warning-notice"><div><strong>{breaks.status==='insufficient_for_test'?'Change analysis unavailable for this series.':'Change analysis is not available yet.'}</strong><p>{breaks.status==='insufficient_for_test'?unavailable(breaks):'The service has not returned a change analysis. No seam, date or explanation has been substituted.'}</p></div></div>:<>
       <div className="seam-summary" data-selected={selected===cp.change_id}>
         {typeof cp.change_id==='string'&&isMonth(cp.date)&&['detected','inconclusive'].includes(String(cp.status))&&<button className="seam-select" aria-pressed={selected===cp.change_id} onClick={()=>onSelect(String(cp.change_id))}>↳ Inspect {month(cp.date)}</button>}

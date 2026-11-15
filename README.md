@@ -34,6 +34,20 @@ time strip lets you scrub or play through the years. A click anywhere runs the f
 cloud OPeNDAP and stored by the service. Without the cube, points and areas in Europe use the same live NASA services as
 everywhere else (Giovanni, Harmony); the prepared maps and globe frames still work.
 
+### The interface
+- **One rotating globe.** Colour shows the selected variable's yearly anomaly or full-period trend: the world on 2° cells,
+  Europe in more detail on 1° cells. Diverging "cork" colour scale (Scientific Colour Maps), zero at the neutral midpoint,
+  numeric limits taken from the data. Cells without data stay uncoloured.
+- **Click anywhere.** The exact coordinates of the click are analysed live on the product's native grid. The card leads
+  with the answer (direction and rate, or the mode 2 category); **Evidence** opens the monthly chart, the tests, the change
+  marker, documented events and the data passport.
+- **Time strip.** Yearly values of the selected place and of its neighbouring cells; scrub or press Play to step through
+  the real yearly frames on the globe (no in-between frames are generated).
+- **Compare two places (A ↔ B)** with two native analyses, and **Place & period** for exact coordinates, rectangular
+  areas, a chosen period and the MODIS variables (point only, background job).
+<!-- Sync after 018-shader: if the WebGL "Smooth / Cells" raster view ships, describe it here in one line
+     (display-only colour blending between real cells; numbers and clicks use the real cells). -->
+
 ### Mode 1 — trends
 - **Any point or rectangular area:**
   - **Points:** a live monthly series. Each month is converted to an anomaly against the same calendar month,
@@ -48,7 +62,8 @@ everywhere else (Giovanni, Harmony); the prepared maps and globe frames still wo
 - **Sufficiency:** a series is tested only with at least 120 valid months and at least 66 % valid; otherwise the app
   says why it did not test.
 - **Any period:** the analysis can be re-run for any period the user picks (time aperture).
-- **Europe trend maps** for all seven gridded variables:
+- **Europe trend maps at native resolution** for all seven gridded variables (API, `GET /api/v1/maps/europe`; the globe
+  itself uses the 1° and 2° layers below):
   - Sen's slope and Mann-Kendall per native grid cell;
   - significance controlled across the map with the Benjamini-Hochberg false discovery rate (q < 0.05);
   - IMERG is mapped on 0.5° aggregates.
@@ -91,22 +106,29 @@ everywhere else (Giovanni, Harmony); the prepared maps and globe frames still wo
   COVID-19 lockdowns in 2020, and the European heat waves and droughts of 2003, 2010, 2018 and 2022). Each event links to
   NASA, USGS, ESA, Copernicus or JRC pages (`GET /api/v1/known-events`).
 - **NASA EONET:** events near the change are shown as a separate observation. They never choose the category.
+- **Changes layer on the globe:** the same change-point rule runs in every globe cell (Europe 1°, world 2°) on the same
+  aggregated series as the trend layer. Detected and inconclusive changes carry their month, shift and category by the
+  same ordered rules (documented product boundary, known event, or undetermined; both shown when they coincide). A mark
+  is a candidate to inspect, not a finding: Pettitt p-values are not corrected for testing many cells, and the change
+  month is an estimate that can be off by a few months.
 - **Wording:** always "consistent with", never "proven" (`never_proof: true` in every conclusion).
 
 ---
 
 ## Data honesty
 
-- **Only real data reach the user.** No synthetic, interpolated, smoothed-in or placeholder values in the interface or
-  the API. Synthetic data exist only in the test suites.
+- **Only real data reach the user.** No synthetic, interpolated or placeholder values in the API or in any number the
+  interface shows. Synthetic data exist only in the test suites.
+<!-- Sync after 018-shader: if the Smooth raster view ships, add: "The optional Smooth view blends colours between
+     neighbouring cells for display only; every number, every click and the significance marks use the real cells." -->
 - **A missing value is `null` with a reason** (for example `fill_value`, `outside_product_period`,
   `fewer_than_10_valid_months`). Gaps are never filled. "No data", "zero" and "the request failed" are different states.
 - **Explicit states everywhere:** `no_data`, `not_ready`, `not_available`, `source_error` (with whether a retry makes
   sense), and job progress that counts real work (for example MODIS files checked).
 - **Methods are documented with the result:** every analysis returns its climatology base period, unit
   conversion, aggregation rules and the version of the statistics code.
-- **Coarser grids say so:** aggregated cells (IMERG 0.5° on maps, the 1° globe grid) say how they were built and when an
-  aggregate is valid.
+- **Coarser grids say so:** aggregated cells (IMERG 0.5° on the native maps, the 1° Europe and 2° world globe grids) say
+  how they were built, which native cells were sampled and when an aggregate is valid.
 
 ## How it works
 
@@ -115,8 +137,9 @@ One container serves everything:
 - **Web interface:** a built React app, under `/`.
 - **Short-lived state:** jobs and the hot cache live in SQLite. Long requests (areas outside Europe, MODIS points,
   investigations) run as background jobs, and the interface follows their real progress.
-- **Prepared real data:** trend maps (`data/prepared/maps/europe/`), globe frames and the 1° globe trend (`data/prepared/globe/europe/`) are
-  computed from the Europe cube and shipped with the image, so the map and globe work right after deployment.
+- **Prepared real data:** native trend maps (`data/prepared/maps/europe/`), the Europe 1° globe frames and trend
+  (`data/prepared/globe/europe/`) and the world 2° frames and trend (`data/prepared/globe/world/`) are computed from the
+  Europe cube and the strided world cube and shipped with the image, so the globe works right after deployment.
 
 ## API overview
 
@@ -132,6 +155,7 @@ One container serves everything:
 | `GET /api/v1/globe/europe/{variable}/trend` | Full-period trend on the same 1° grid (format `map-1.2`) |
 | `GET /api/v1/globe` | Which globe domain (Europe 1°, World 2°) is ready for which variable |
 | `GET /api/v1/globe/world/{variable}`, `.../trend`, `.../strip?lat=&lon=` | The same three layers on the 2° world grid |
+| `GET /api/v1/globe/{europe,world}/{variable}/changes` | Possible abrupt change per globe cell with its category (format `changes-1`) |
 | `GET /api/v1/globe/europe/{variable}/strip?lat=&lon=` | The selected 1° cell and its neighbours for the time strip |
 | `GET /api/v1/known-events` | The curated list of known events, its sources and matching rules |
 
@@ -161,7 +185,7 @@ docker run --rm -p 8080:8080 --env-file .env trend-detective
 ```
 Then open <http://127.0.0.1:8080/>.
 
-## Build the Europe data cube, maps and globe frames
+## Build the data cubes, maps and globe layers
 
 ```bash
 .venv/Scripts/python -m backend.pipelines.europe_cube                    # MERRA-2 T2M, GPM IMERG, GLDAS, AIRS
@@ -170,8 +194,10 @@ Then open <http://127.0.0.1:8080/>.
 .venv/Scripts/python -m backend.pipelines.europe_globe --prepared        # yearly globe frames (+ copies shipped with the image)
 .venv/Scripts/python -m backend.pipelines.europe_globe_trend --prepared  # full-period trend on the 1° globe grid
 .venv/Scripts/python -m backend.pipelines.world_cube --with-layers       # world: strided download + 2° frames and trend
+.venv/Scripts/python -m backend.pipelines.globe_changes --domain europe --prepared   # Changes layer (also --domain world)
 ```
-Raw subsets go to `data/raw/` and the assembled cube to `data/runtime/cube/europe/`; both are ignored by git.
+Raw subsets go to `data/raw/` and the assembled cubes to `data/runtime/cube/europe/` and `data/runtime/cube/world/`;
+both are ignored by git.
 Downloads resume where they stopped. `europe_cube --with-maps` builds the maps, globe frames and globe trend after the cube.
 
 ## Repository layout
@@ -180,9 +206,9 @@ Downloads resume where they stopped. `europe_cube --with-maps` builds the maps, 
 |---|---|
 | `backend/app/` | FastAPI service: API, statistics (`stats.py`, `breaks.py`, `annual.py`), mode 2 (`investigation.py`, `known_events.py`), NASA data access (`series.py`, `sources.py`) |
 | `backend/app/data/known_events.json` | The curated list of known events with sources |
-| `backend/pipelines/` | Europe data cube, trend maps and globe frames from real NASA data |
+| `backend/pipelines/` | Europe and world data cubes, trend maps, globe frames and globe trend from real NASA data |
 | `backend/tests/` | Backend tests (pytest); synthetic data only here |
-| `data/prepared/` | Prepared real-data files shipped with the image (trend maps, globe frames) |
+| `data/prepared/` | Prepared real-data files shipped with the image (native trend maps; Europe 1° and world 2° globe frames and trend) |
 | `frontend/` | Web interface (React + TypeScript, built with Vite) |
 | `Dockerfile` | One container: frontend build stage + Python runtime |
 | `deploy/` | Deployment guides: [Azure](deploy/azure.md) (current), [Google Cloud Run](deploy/README.md) (alternative) |
@@ -307,10 +333,11 @@ Runtime images: Python 3.12 ([`python:3.12.8-slim`](https://hub.docker.com/_/pyt
 ### Geography, fonts, icons, images
 | Resource | Used for | Link | License |
 |---|---|---|---|
-| Scientific Colour Maps 8.0.1 — "cork" (Crameri) | Diverging colour scale of the data layers | [doi:10.5281/zenodo.1243862](https://doi.org/10.5281/zenodo.1243862) · Crameri, F., Shephard, G. E. & Heron, P. J. (2020), *Nat. Commun.* 11, 5444, [doi:10.1038/s41467-020-19160-7](https://doi.org/10.1038/s41467-020-19160-7) | MIT |
+| Scientific Colour Maps 8.0.1 — "cork" (Crameri) | Diverging colour scale of the data layers (original table rows 32–223, linear lookup) | Version 8.0.1: [doi:10.5281/zenodo.8409685](https://doi.org/10.5281/zenodo.8409685) · [fabiocrameri.ch/colourmaps](https://www.fabiocrameri.ch/colourmaps/) · Crameri, F., Shephard, G. E. & Heron, P. J. (2020), *Nat. Commun.* 11, 5444, [doi:10.1038/s41467-020-19160-7](https://doi.org/10.1038/s41467-020-19160-7) | MIT; licence file [`frontend/third_party/ScientificColourMaps-LICENCE.pdf`](frontend/third_party/ScientificColourMaps-LICENCE.pdf) |
 | Natural Earth 1:110m land | Coastlines and land outline behind the data layers | [natural-earth-vector](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson) · [Terms](https://www.naturalearthdata.com/about/terms-of-use/) | Public domain ("Made with Natural Earth") |
 | System fonts (Arial, Consolas and generic fallbacks) | Interface text | [Microsoft font FAQ](https://learn.microsoft.com/en-us/typography/fonts/font-faq) | Installed system fonts; no font files redistributed |
-| Icons, charts, globe and map drawing | Interface | `frontend/src/` | Written for this project; no icon library, photos, map tiles or generated images |
+| Icons, charts, globe and map drawing (including the WebGL renderer) | Interface | `frontend/src/` | Written for this project; no icon library, 3D library, photos, map tiles or generated images |
+<!-- Sync after 018-shader: re-check frontend/THIRD_PARTY_NOTICES.md and docs/RESOURCES.md for anything added for the shader. -->
 
 ### Hosting and tools
 | Resource | Used for | Link |

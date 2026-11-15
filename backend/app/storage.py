@@ -76,9 +76,13 @@ def globe_trend_path(data_dir: Path, variable_id: str, domain: str = "europe") -
     return Path(data_dir) / "globe" / domain / "trend" / f"{variable_id}.json"
 
 
+def globe_changes_path(data_dir: Path, variable_id: str, domain: str = "europe") -> Path:
+    return Path(data_dir) / "globe" / domain / "changes" / f"{variable_id}.json"
+
+
 # path -> [mtime, payload, serialised bytes, gzip bytes or None]; the gzip copy belongs to that exact file version
 _GLOBE_CACHE: dict[str, list[Any]] = {}
-GLOBE_KINDS = ("frames", "trend")
+GLOBE_KINDS = ("frames", "trend", "changes")
 
 
 def _cached(path: Path, gz: bool) -> list[Any] | None:
@@ -110,15 +114,15 @@ def _cached(path: Path, gz: bool) -> list[Any] | None:
 
 def _globe_entry(data_dir: Path, prepared_dir: Path | None, variable_id: str, kind: str,
                  domain: str = "europe") -> list[Any] | None:
-    fresh_path = (globe_path(data_dir, variable_id, domain) if kind == "frames"
-                  else globe_trend_path(data_dir, variable_id, domain))
+    fresh_path = {"frames": globe_path, "trend": globe_trend_path,
+                  "changes": globe_changes_path}[kind](data_dir, variable_id, domain)
     fresh = _cached(fresh_path, gz=False)
     if fresh is not None:
         return fresh
     if prepared_dir is not None:
         sub = Path("globe") / domain
-        if kind == "trend":
-            sub = sub / "trend"
+        if kind in ("trend", "changes"):
+            sub = sub / kind
         return _cached(Path(prepared_dir) / sub / f"{variable_id}.json.gz", gz=True)
     return None
 

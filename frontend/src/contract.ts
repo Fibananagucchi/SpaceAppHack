@@ -13,6 +13,7 @@ export interface Variable {
   coverage: { start: string; end: string; surface: string; checked_at?: string };
   native_resolution: { lat_deg: number; lon_deg: number; time: string };
   capabilities: Record<string, string>;
+  product_boundaries?: ObjectValue[];
   limitations?: string[];
   summary?:{definition:string;limitation:string};
 }
@@ -76,6 +77,7 @@ export function parseVariables(data: ObjectValue): Variable[] {
         (item.definition !== null && typeof item.definition !== 'string') ||
         !Object.values(item.capabilities).every(v => typeof v === 'string')) throw new Error('invalid_catalogue');
     const id = item.variable_id as string;
+    if(item.product_boundaries!==undefined&&(!Array.isArray(item.product_boundaries)||!item.product_boundaries.every(isObject)))throw new Error('invalid_catalogue');
     if(item.limitations!==undefined&&(!Array.isArray(item.limitations)||!item.limitations.every(v=>typeof v==='string')))throw new Error('invalid_catalogue');
     if(item.summary!==undefined&&(!isObject(item.summary)||typeof item.summary.definition!=='string'||typeof item.summary.limitation!=='string'))throw new Error('invalid_catalogue');
     if (ids.has(id)) throw new Error('invalid_catalogue');

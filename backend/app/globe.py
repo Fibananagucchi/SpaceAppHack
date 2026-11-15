@@ -23,6 +23,7 @@ GRID_ORDER = "row-major, row 0 = southernmost latitude, column 0 = westernmost l
 def _layer_state(settings: Settings, vid: str, domain: str) -> dict[str, Any]:
     frames = read_globe(settings.data_dir, settings.prepared_dir, vid, domain=domain)
     trend = read_globe(settings.data_dir, settings.prepared_dir, vid, kind="trend", domain=domain)
+    changes = read_globe(settings.data_dir, settings.prepared_dir, vid, kind="changes", domain=domain)
     return {
         "frames": ({"status": "ok", "unit": frames["unit"],
                     "years": {"first": frames["years"][0], "last": frames["years"][-1]},
@@ -31,6 +32,9 @@ def _layer_state(settings: Settings, vid: str, domain: str) -> dict[str, Any]:
         "trend": ({"status": "ok", "period": trend["period"], "unit": trend["unit"],
                    "served_from": trend["provenance"].get("served_from")}
                   if trend is not None else {"status": "not_ready", "reason": "not_computed"}),
+        "changes": ({"status": "ok", "period": changes["period"], "counts": changes["counts"],
+                     "computed_at": changes.get("computed_at"), "served_from": changes["provenance"].get("served_from")}
+                    if changes is not None else {"status": "not_ready", "reason": "not_computed"}),
     }
 
 

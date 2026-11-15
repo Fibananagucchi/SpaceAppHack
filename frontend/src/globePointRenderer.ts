@@ -1,7 +1,7 @@
 import type {GlobeLayer,GlobeView} from './globeGeometry';
 import type {VisibleProjection} from './globeLod';
 
-export interface PointRenderer {draw:(projection:VisibleProjection|undefined,layer:GlobeLayer|undefined,colours:number[]|undefined,view:GlobeView,width:number,height:number,dpr:number)=>number;dispose:()=>void}
+export interface PointRenderer {draw:(projection:VisibleProjection|undefined,layer:GlobeLayer|undefined,colours:number[]|undefined,view:GlobeView,width:number,height:number,dpr:number)=>number;invalidate:()=>void;dispose:()=>void}
 
 /** One GPU submission of the same visible real centres, below the coastline canvas. */
 export function createPointRenderer(canvas:HTMLCanvasElement,palette:number[][]):PointRenderer|undefined {
@@ -47,5 +47,5 @@ export function createPointRenderer(canvas:HTMLCanvasElement,palette:number[][])
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.drawArrays(gl.POINTS,0,count);
     }
     lastProjection=projection;lastLayer=layer;initialized=true;return count;
-  },dispose(){gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);}};
+  },invalidate(){initialized=false;},dispose(){gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);}};
 }

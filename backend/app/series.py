@@ -1,6 +1,6 @@
 """Real monthly series for one grid cell: from the Europe cube or from Giovanni.
 
-Source rule (DECISIONS [агенти], step 1): a point inside the Europe domain is read from
+Source rule (team decision log, step 1): a point inside the Europe domain is read from
 the prepared Europe cube when that variable's cube is ``ready`` (same product files as
 the trend map, NASA GES DISC OPeNDAP); otherwise the series comes live from the
 NASA Giovanni time-series service. The source is always named in the provenance.

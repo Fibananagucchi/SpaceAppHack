@@ -1,9 +1,9 @@
-# --- Секрети ---
+# --- Secrets ---
 .env
 .env.*
 !.env.example
 
-# --- Великі сирі дані ---
+# --- Large raw data ---
 data/raw/
 data/runtime/
 *.nc
@@ -12,13 +12,14 @@ data/runtime/
 *.h5
 *.he5
 
-# --- Робота з агентами (службове, не частина продукту) ---
+# --- Team working files (not part of the product) ---
 AGENTS.md
 CLAUDE.md
 tasks/
 discussion/
 reports/
 docs/
+presentation/
 
 # --- Python ---
 __pycache__/
@@ -32,14 +33,14 @@ venv/
 .coverage
 htmlcov/
 
-# --- Node / фронтенд ---
+# --- Node / frontend ---
 node_modules/
 dist/
 build/
 .next/
 .vite/
 
-# --- Налаштування агентів та IDE ---
+# --- Tool and IDE settings ---
 .claude/
 .codex/
 .vscode/
@@ -48,14 +49,14 @@ build/
 *.swp
 *~
 
-# --- Логи й тимчасові файли ---
+# --- Logs and temporary files ---
 *.log
 *.tmp
 *.bak
 .cache/
 tmp/
 
-# --- ОС ---
+# --- OS ---
 .DS_Store
 Thumbs.db
 desktop.ini

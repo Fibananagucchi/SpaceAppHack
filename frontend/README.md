@@ -5,18 +5,18 @@ analyses, monthly time series, trend evidence, data passports, Change seam, Time
 aperture and Counter-directions. A three-question guide helps choose a variable,
 place and period. The frontend calculates no scientific tests.
 
-The workspace uses one rotating orthographic globe for global selection and the
-Europe data layer. The selected record leads with its direction, rate and evidence;
+The workspace uses one rotating orthographic globe for global selection, world
+2° data and the Europe 1° fallback. The selected record leads with its direction, rate and evidence;
 a completed wider-context check replaces the headline with the backend's category.
 Evidence opens a native reading drawer with the monthly chart, tests, Change seam,
 documented events and data passport. Place & period supports exact coordinates,
 areas and background MODIS products. No second map or selection page is needed.
 
-The bottom Time aperture combines a native annual record, neighbouring 1° cells,
+The bottom Time aperture combines a native annual record, neighbouring display cells,
 an anomaly ribbon, an API-provided monthly Sen fit and an interactive change marker.
-Scrubbing or Play changes real annual frames on the globe, with no interpolation.
+Scrubbing or Play changes real annual frames on the globe, without temporal interpolation.
 The exact analysis-period brackets and Apply action remain available in Evidence.
-Blue/copper marks sit on flat navy and muted dark surfaces: no glow, stars or glass.
+Graphite / Sage surfaces and the cork data scale have no glow, stars or glass.
 
 ## Run
 
@@ -277,7 +277,7 @@ projection, controls and timeline are project-authored Canvas/WebGL/SVG/React co
 - Geography: [Natural Earth](https://www.naturalearthdata.com/),
   [public-domain terms](https://www.naturalearthdata.com/about/terms-of-use/).
   The existing geographic SVG is sampled only as a land mask, without observations.
-  Existing coastline paths are projected above the data dots.
+  Existing coastline paths are projected above the raster or fallback points.
 - Annual frames reuse the cited source products:
   [MERRA-2](https://doi.org/10.5067/5ESKGQTZG7FO),
   [IMERG](https://doi.org/10.5067/GPM/IMERG/3B-MONTH/07),
@@ -302,7 +302,48 @@ or stock asset is introduced by the globe UI. These resource notes belong in the
 root submission README when the team prepares the final resource inventory.
 
 
-## Refinements and performance (15 November, 12:10 team feedback)
+## Raster display (15 November, 15:12 team decision)
+
+The default Smooth surface is an original WebGL shader over the actual world 2°
+or Europe 1° grid. Cells shows those same cells without spatial filtering.
+Bounded cubic filtering affects the visual field only; the legend explicitly says
+`smoothed display · values from grid cells`. Tooltips read original cell arrays,
+and P / manual A/B send exact inverse-projected click coordinates to the native
+analysis API. All scientific calculations remain on the backend.
+
+Separate nearest masks retain hard boundaries for missing / insufficient cells
+and the Natural Earth coastline for land-only products. Cubic filtering requires 16 valid source cells and stays within the central four
+values. Near gaps it uses bilinear only with four valid cells, otherwise the
+actual nearest cell; it never blends through a gap. World padding wraps across the date line; Europe is clipped
+to its actual domain. Server FDR booleans create an unfiltered diagonal hatch.
+The original cork segment and API limits are unchanged. No time interpolation,
+new observations, source API or runtime dependency is introduced.
+
+Textures upload only when the year or layer changes. Camera motion updates
+uniforms; hover and idle do not repaint. The data and geographic fill buffers use
+CSS-pixel resolution, while coastline / marker overlays retain up to DPR 2.
+Shader failure, unavailable WebGL or context loss switches to the existing
+points, explicitly labelled; reduced motion keeps Play disabled.
+
+```powershell
+node tools/check-globe-raster.mjs --production
+node tools/check-globe-raster-records.mjs --production
+node tools/check-globe-selection.mjs --raster
+node tools/bench-globe.mjs raster
+node tools/bench-globe.mjs raster t2m,evapotranspiration,no2_tropo 2
+```
+
+Actual screenshots, pixel checks, hardware metadata and raw timings are in the
+ignored `_mockups/globe-018-raster/`. Pixel QA uses preserved test canvas buffers
+only for readback; the production renderer and timed runs do not preserve them.
+Before the final cubic refinement, the Edge / Iris Xe measurement reached 43.5–59.3 repaint FPS in all 88 DPR 1
+cases (seven variables, both data modes, Smooth / Cells, zoom and polar views).
+The 40 DPR 2 cases reached 31.7–50.5 FPS. The final cubic shader passed one short
+real ET close-view interaction at 53.8 FPS; the full matrix was not repeated,
+following the team’s 16:17 instruction. These are short interaction measurements
+on one machine, not guaranteed display presentation rates on every device.
+
+## Point fallback and earlier refinement measurements
 
 A fresh visit starts with Evapotranspiration; a resumed pending request keeps its
 own variable. Natural Earth coastlines are drawn above all data dots. The globe
@@ -352,3 +393,54 @@ JSON separates actual Canvas repaint FPS, rAF interval and Canvas CPU paint time
 GPU presentation is not included in the CPU paint timer. Test hardware was an
 Intel Core i7-1260P with Intel Iris Xe / ANGLE Direct3D11. Results describe that
 machine and short repeatable sessions, not a guarantee for every browser/device.
+
+## Changes and source-linked messages (task 023)
+
+Changes adds backend `changes-1` candidates over the real annual field. The current
+displayed year selects the markers; Play advances both together. Squares indicate
+a nearby product change, diamonds a matching documented event, and circles an
+unclear cause. Dashed markers are unresolved candidates. A coinciding product
+change and event retain both symbols. These exploratory jump tests are not
+corrected for searching many cells; dates are estimates, not exact event dates.
+
+The index announces changes independently for world 2° and Europe 1°. Ready world
+changes take priority; Europe-only, not ready, failed refresh and a valid empty
+year have explicit states. Payload revisions use `computed_at`. All sparse columns,
+cell statuses, coordinates, categories and dates are validated before display.
+The source rules and product-boundary references remain available in Evidence.
+
+A marker requests its actual grid centre as a new native point analysis. Ordinary
+globe clicks retain exact coordinates. A map category is never copied into that
+native result: eligible point records use the existing independent investigation.
+The map-cell shift and native trend are labelled separately. The keyboard-accessible
+browser in Evidence exposes every candidate in the selected year with pagination.
+
+Documented-event markers come from `/known-events`, including their source links
+and backend marker coordinates. Their location represents an approximate region;
+global events get a badge instead of an invented point. Displaying a catalogue
+event does not imply it matches the selected point. Native matched events retain
+the backend's place, date, variable and direction checks.
+
+The main answer is one sentence and a rate. Record details and source documents
+open on demand. A source-linked callout sits beside P; timeline messages attach
+to actual jumps, product boundaries and documented events. Selecting a timeline
+message opens a short explanation and references. Play shows source-backed captions
+in their year. The help guide contains rotation / zoom / keyboard instructions.
+Symbols have text alternatives and distinct shapes; no icon or other runtime
+package was added. Reduced motion and the original point fallback remain available.
+
+Following the team's 16:17 instruction, normal validation is limited to the build,
+the core parser / raster tests and one short real-data browser flow:
+
+```powershell
+npm run build
+npm test -- tests/globe-changes.test.ts tests/globe-raster.test.ts
+node tools/check-changes-quick.mjs
+```
+
+The browser flow uses the actual built frontend at API8000, with fresh isolated
+Edge and no observation mocks. It checks the compact answer, source counts, Play,
+marker coordinates and source documentation. Three screenshots and its small JSON
+record are in ignored `_mockups/changes-023/`. Reports are in `frontend/reports/`
+to respect the current frontend-only edit scope. Earlier full benchmark matrices,
+vision emulations and gallery helpers are historical; run them only if requested.

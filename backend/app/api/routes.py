@@ -169,6 +169,18 @@ async def globe_strip(variable_id: str, request: Request,
     return JSONResponse(content=globe.strip(request.app.state.settings, variable_id, lat, lon, ring))
 
 
+@router.get("/globe/europe/{variable_id}/changes")
+async def globe_changes(variable_id: str, request: Request) -> Response:
+    """Possible abrupt change per 1° Europe cell with its category (format changes-1)."""
+    return _globe_file(request, variable_id, "changes", "europe")
+
+
+@router.get("/globe/world/{variable_id}/changes")
+async def globe_world_changes(variable_id: str, request: Request) -> Response:
+    """Possible abrupt change per 2° world cell with its category (format changes-1)."""
+    return _globe_file(request, variable_id, "changes", "world")
+
+
 @router.get("/globe/world/{variable_id}")
 async def globe_world_frames(variable_id: str, request: Request) -> Response:
     """Yearly anomaly frames on the 2° world grid (format globe-1)."""

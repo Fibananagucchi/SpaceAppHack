@@ -98,6 +98,15 @@ def match(variable_id: str, change_month: str, location: dict[str, Any],
 
 def public_list() -> dict[str, Any]:
     data = load_events()
+    events = []
+    for event in data["events"]:
+        area = event["area"]
+        marker = None
+        if area["scope"] == "box":
+            west, south, east, north = area["bbox"]
+            marker = {"lat": round((south + north) / 2, 3), "lon": round((west + east) / 2, 3),
+                      "rule": "centre of the event's approximate area box (for a map marker only)"}
+        events.append({**event, "marker": marker})
     return {"status": "ok", "list_version": data["list_version"], "compiled_at": data["compiled_at"],
             "reviewed_by_team": data["reviewed_by_team"], "note": data["note"], "match_rules": MATCH_RULES,
-            "events": data["events"]}
+            "events": events}

@@ -121,6 +121,30 @@ def _segment(times: list[str], t: np.ndarray, x: np.ndarray, unit: str) -> dict[
     }
 
 
+def decide_change(t: np.ndarray, x: np.ndarray) -> dict[str, Any] | None:
+    """The change-point decision of breaks-1 for the valid months of one series.
+
+    Shared by point analyses (analyze_breaks) and the globe Changes layer, so that a cell and a point decide
+    by exactly the same rule: Pettitt, then BIC step vs straight line for a significant result.
+    t: month offsets of the valid months; x: their anomalies. None if the series is too short for Pettitt.
+    """
+    pt = pettitt(x)
+    if pt is None:
+        return None
+    significant = pt["p"] < stats.ALPHA
+    comparison = (compare_step_vs_line(t, x, pt["index"]) if significant
+                  else {"status": "not_applicable", "reason": "pettitt_not_significant"})
+    if not significant:
+        status = "not_detected"
+    elif comparison.get("preferred") == "step":
+        status = "detected"
+    elif comparison.get("preferred") == "line":
+        status = "not_distinct_from_trend"
+    else:
+        status = "inconclusive"
+    return {"pettitt": pt, "significant": significant, "comparison": comparison, "status": status}
+
+
 def analyze_breaks(times: list[str], anomalies: np.ndarray, unit: str, full_trend: dict[str, Any],
                    boundaries: list[dict[str, Any]], values: np.ndarray | None = None) -> dict[str, Any]:
     """Breaks block of contract v1.1 for one series (anomalies already computed)."""
@@ -142,26 +166,17 @@ def analyze_breaks(times: list[str], anomalies: np.ndarray, unit: str, full_tren
     t_all = stats.month_offsets(times)
     valid = np.isfinite(anomalies)
     t, x = t_all[valid], anomalies[valid]
-    pt = pettitt(x)
-    if pt is None:
+    decision = decide_change(t, x)
+    if decision is None:
         result.update(status="insufficient_for_test", reason="too_short")
         return result
 
+    pt, significant, comparison, status = (decision["pettitt"], decision["significant"], decision["comparison"],
+                                           decision["status"])
     k = pt["index"]
     date = times[int(t[k + 1])]          # first month after the candidate change
     last_before = times[int(t[k])]
     before, after = x[: k + 1], x[k + 1:]
-    significant = pt["p"] < stats.ALPHA
-    comparison = compare_step_vs_line(t, x, k) if significant else {"status": "not_applicable",
-                                                                    "reason": "pettitt_not_significant"}
-    if not significant:
-        status = "not_detected"
-    elif comparison.get("preferred") == "step":
-        status = "detected"
-    elif comparison.get("preferred") == "line":
-        status = "not_distinct_from_trend"
-    else:
-        status = "inconclusive"
     result["change_point"] = {
         "status": status,
         "pettitt_significant": bool(significant),

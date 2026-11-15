@@ -3,19 +3,19 @@ import { number } from './format';
 import type { PublicWarning, StateKind, ViewState } from './contract';
 
 const copy: Record<StateKind, { label: string; title: string; description: string }> = {
-  idle: { label: 'Your question', title: 'Start with a place.', description: 'Choose a variable, enter coordinates and set the period you want to examine.' },
-  loading: { label: 'Request sent', title: 'Retrieving observations…', description: 'Your place and period stay attached to this request. No values are shown while it is running.' },
-  connecting: { label: 'Connecting', title: 'Connecting to the analysis service…', description: 'Waiting for a response. A slow connection does not tell us whether observations are available.' },
-  queued: { label: 'Queued', title: 'Your request is queued.', description: 'The service has accepted the request. Observations are not available yet.' },
-  running: { label: 'In progress', title: 'Retrieving observations…', description: 'The service is working on this selection. Missing observations will not be replaced with invented values.' },
+  idle: { label: 'Your question', title: 'Start with a place.', description: 'Choose what, where and when.' },
+  loading: { label: 'Request sent', title: 'Retrieving observations…', description: 'Loading the record for your place and period.' },
+  connecting: { label: 'Connecting', title: 'Connecting to the analysis service…', description: 'Waiting for the service to respond.' },
+  queued: { label: 'Queued', title: 'Your request is queued.', description: 'The service will start when a slot is available.' },
+  running: { label: 'In progress', title: 'Retrieving observations…', description: 'Loading real observations for your selection.' },
   ready: { label: 'Request complete', title: 'Observations received.', description: 'The service returned observations for this selection.' },
-  no_data: { label: 'No observations', title: 'No observations for this selection.', description: 'Try another place, period or variable. No observations is different from a measured value of zero.' },
-  source_error: { label: 'Request unavailable', title: 'The source could not complete this request.', description: 'Your selection is preserved. This failure does not mean that observations are absent.' },
-  insufficient_for_test: { label: 'Test unavailable', title: 'Not enough evidence for this test.', description: 'Observations may exist, but this test cannot be run on the returned series. No statistic is substituted.' },
-  not_implemented: { label: 'Analysis unavailable', title: 'This analysis is not available yet.', description: 'The service recognised the request but cannot perform this analysis yet. Your selection is preserved.' },
-  not_found: { label: 'Request not found', title: 'This request is no longer available.', description: 'Your selection is preserved. Run the request again; an unavailable saved request is not a finding of no data.' },
-  invalid_request: { label: 'Check your selection', title: 'The request needs a correction.', description: 'Check the variable, coordinates and start and end months before trying again.' },
-  protocol_error: { label: 'Response unavailable', title: 'This response could not be read.', description: 'The service returned an unexpected response. No result has been substituted.' },
+  no_data: { label: 'No observations', title: 'No observations for this selection.', description: 'Try another place or period; missing data is not zero.' },
+  source_error: { label: 'Request unavailable', title: 'The source could not complete this request.', description: 'Try again; a source failure does not mean there is no data.' },
+  insufficient_for_test: { label: 'Test unavailable', title: 'Not enough evidence for this test.', description: 'The record does not meet this test’s data requirements.' },
+  not_implemented: { label: 'Analysis unavailable', title: 'This analysis is not available yet.', description: 'This selection is not supported yet.' },
+  not_found: { label: 'Request not found', title: 'This request is no longer available.', description: 'Run it again to request a fresh result.' },
+  invalid_request: { label: 'Check your selection', title: 'The request needs a correction.', description: 'Check the place and period, then try again.' },
+  protocol_error: { label: 'Response unavailable', title: 'This response could not be read.', description: 'Try again to retrieve a readable response.' },
 };
 
 const stageCopy: Record<string, string> = {
@@ -67,7 +67,7 @@ export function StatusNotice({ state, onRetry, onRefresh, purpose='analysis' }: 
     <div className="state-brackets" aria-hidden="true"><span>[</span><span>]</span></div>
     <p className="eyebrow">{info.label}</p>
     <h2>{title}</h2>
-    <p className="state-description">{purpose==='investigation'&&busy?'The trend result stays available while context is checked. No cause has been assigned.':tooSmall?'Enlarge the area or choose a point. No value has been substituted.':info.description}</p>
+    <p className="state-description">{purpose==='investigation'&&busy?'Your trend stays available while the clues are checked.':tooSmall?'Enlarge the area or choose a point.':info.description}</p>
     {state.stage && stageCopy[state.stage] && busy && <p className="stage-label">{stageCopy[state.stage]}</p>}
     {busy && <div className="request-progress">
       {state.progress && state.kind !== 'connecting' ? <>

@@ -16,7 +16,7 @@ export function unproject(x:number,y:number,v:GlobeView):GeoPoint|undefined {
   return {lat:lat*deg,lon:((lon+540)%360)-180};
 }
 export function rotate(v:GeoPoint,dx:number,dy:number):GeoPoint {return {lon:((v.lon+dx+540)%360)-180,lat:Math.max(-85,Math.min(85,v.lat+dy))};}
-export interface GlobeLayer {domain?:'world'|'europe';rows:number;cols:number;lat0:number;lon0:number;dlat:number;dlon:number;values:(number|null)[];limit:number;unit:string;label:string;significant?:(boolean|null)[];statusLabels?:string[]}
+export interface GlobeLayer {domain?:'world'|'europe';landOnly?:boolean;rows:number;cols:number;lat0:number;lon0:number;dlat:number;dlon:number;values:(number|null)[];limit:number;unit:string;label:string;significant?:(boolean|null)[];statusLabels?:string[]}
 export function globeCell(layer:GlobeLayer,p:GeoPoint):number|undefined {
   const west=layer.lon0-layer.dlon/2,south=layer.lat0-layer.dlat/2;
   if(p.lon<west||p.lon>west+layer.cols*layer.dlon||p.lat<south||p.lat>south+layer.rows*layer.dlat)return undefined;

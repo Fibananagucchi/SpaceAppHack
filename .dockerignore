@@ -21,3 +21,4 @@ frontend/dist/
 deploy/
 *.log
 frontend/_mockups/
+presentation/
